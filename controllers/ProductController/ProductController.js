@@ -168,6 +168,7 @@ exports.updateProduct = async (req, res) => {
     }
 }; //cambios mas adelante
 
+//agregar producto a tienda
 exports.addProjectDetailsForProduct = async (req, res) => {
     try {
         const { productId } = req.params;
@@ -273,3 +274,118 @@ exports.addProjectDetailsForProduct = async (req, res) => {
         res.status(500).json({ message: error.message, stack: error.stack });
     }
 };
+
+// Obtener productos resumen con estado "Producto en tienda" según el proyecto del usuario autenticado
+exports.getProductsResumen = async (req, res) => {
+    try {
+        // Obtener el token de las cookies o del encabezado Authorization
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+
+        // Verificar y decodificar el token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Obtener el usuario autenticado desde MongoDB
+        const mongoUser = await User.findById(decoded.userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB.' });
+        }
+        const username = mongoUser.username;
+
+        // Consultar el proyecto_id en PostgreSQL
+        const projectQuery = `
+            SELECT p.proyecto_id
+            FROM proyectos_vh p
+            INNER JOIN p_c pc ON p.proyecto_id = pc.proyecto_id
+            INNER JOIN administradores c ON pc.cliente_id = c.cliente_id
+            WHERE c.usuario = $1;
+        `;
+        const projectResult = await pgPool.query(projectQuery, [username]);
+
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No se encontró un proyecto asociado al usuario.' });
+        }
+
+        const proyectoId = projectResult.rows[0].proyecto_id;
+
+        // Obtener todos los productos
+        const products = await Product.find();
+
+        // Mapear productos con la información requerida y el estado
+        const productosResumen = products.map(prod => {
+            const enTienda = prod.projectDetails?.some(
+                (pd) => String(pd.proyectoId) === String(proyectoId)
+            );
+            return {
+                _id: prod._id,
+                name: prod.name,
+                marca: prod.marca,
+                image: prod.image,
+                estado: enTienda ? "Producto en tienda" : "Agregar a Tienda"
+            };
+        });
+
+        res.json(productosResumen);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Obtener todos los productos que pertenecen al proyecto del usuario autenticado
+exports.getProductsByUserProject = async (req, res) => {
+    try {
+        // Obtener el token de las cookies o del encabezado Authorization
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+
+        // Verificar y decodificar el token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Obtener el usuario autenticado desde MongoDB
+        const mongoUser = await User.findById(decoded.userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB.' });
+        }
+        const username = mongoUser.username;
+
+        // Consultar el proyecto_id en PostgreSQL
+        const projectQuery = `
+            SELECT p.proyecto_id
+            FROM proyectos_vh p
+            INNER JOIN p_c pc ON p.proyecto_id = pc.proyecto_id
+            INNER JOIN administradores c ON pc.cliente_id = c.cliente_id
+            WHERE c.usuario = $1;
+        `;
+        const projectResult = await pgPool.query(projectQuery, [username]);
+
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No se encontró un proyecto asociado al usuario.' });
+        }
+
+        const proyectoId = projectResult.rows[0].proyecto_id;
+
+        // Buscar productos que tengan projectDetails con ese proyectoId
+        const products = await Product.find({
+            projectDetails: { $elemMatch: { proyectoId: String(proyectoId) } }
+        });
+
+        res.json(products);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+

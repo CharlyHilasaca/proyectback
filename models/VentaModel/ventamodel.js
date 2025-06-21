@@ -8,8 +8,7 @@ const ventaSchema = new mongoose.Schema({
         required: true
     },
     cliente: {
-        type: String,
-        required: true,
+        type: Number,
         trim: true
     },
     email: {
@@ -35,14 +34,20 @@ const ventaSchema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    fechaVenta: {
-        type: Date,
-        default: Date.now
-    },
     proyecto_id: {
         type: String,
         required: true,
         trim: true
+    },
+    estado: {
+        type: String,
+        enum: ['pendiente', 'pagado'],
+        default: 'pendiente'
+    },
+    tipoPago: {
+        type: String,
+        enum: ['efectivo', 'yape'],
+        required: false
     }
 }, { timestamps: true });
 

@@ -60,15 +60,14 @@ router.get('/user/:id', authenticateToken, userController.getUserById);
 router.get('/user', authenticateToken, userController.getUser);
 router.get('/userp', authenticateToken, userController.getUserProject);
 router.get('/users', authenticateToken, userController.getAllCustomers);
+router.get('/clientespg', authenticateToken, userController.getAllClientesPG);
 
 //CATEGORIAS
 //rutas protegidas
 router.get('/categories', authenticateToken, categoryController.getAllCategories);
-router.post('/categories', authenticateToken, categoryController.addCategory);
 
 //UNIDADES
 router.get('/unidades', unidadController.getAllUnidades);
-router.post('/unidades', authenticateToken, unidadController.addUnidad);
 
 //PRODUCTOS
 router.get('/products', productController.getProducts);
@@ -78,13 +77,16 @@ router.get('/productsc/:categoryId', categoryController.getProductsByCategory);
 router.put('/products/:id', authenticateToken, upload.single('image'), productController.updateProduct);
 router.put('/products/:productId/project-details',authenticateToken, productController.addProjectDetailsForProduct);
 router.put('/clientes/change-password', authenticateToken, userController.changePassword);
-router.put('/clientes/change-password-by-developer', authenticateToken, userController.changePasswordByDeveloper);
+router.put('/clientes/change-password-by-developer', authenticateToken, DevController.changePasswordByDeveloper);
+router.get('/productsresumen', authenticateToken, productController.getProductsResumen);
+router.get('/productsproyecto', authenticateToken, productController.getProductsByUserProject);
 
 //CLIENTES
 router.post('/clientes/register', ClientController.register);
 router.post('/clientes/login', ClientController.login);
 router.get('/clientes/customerData', authenticateToken, ClientController.getCustomerData);
 router.post('/clientes/logout', authenticateToken, ClientController.logout);
+router.get('/clientes/dni/:dni', authenticateToken, userController.getClienteByDni);
 
 // GOOGLE AUTH
 router.get('/auth/google',

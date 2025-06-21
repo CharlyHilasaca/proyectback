@@ -11,21 +11,6 @@ exports.getAllCategories = async (req, res) => {
     }
 };
 
-//agregar una nueva categoria solo si hay una sesión iniciada
-exports.addCategory = async (req, res) => {
-    if (!req.userId) {
-        return res.status(401).json({ message: 'No autorizado. Inicie sesión.' });
-    }
-    try {
-        const { name, description } = req.body;
-        const newCategory = new Category({ name, description });
-        await newCategory.save();
-        res.status(201).json(newCategory);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
 //obtener una categoria por id
 exports.getCategoryById = async (req, res) => {
     try {

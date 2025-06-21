@@ -15,7 +15,7 @@ exports.generarVenta = async (req, res) => {
 
         // 2. Consultar el proyecto_id en PostgreSQL usando el username
         const projectQuery = `
-            SELECT p.proyecto_id, nombre
+            SELECT p.proyecto_id, nombres
             FROM p_c p
             INNER JOIN administradores a ON p.cliente_id = a.cliente_id
             WHERE a.usuario = $1
@@ -27,56 +27,84 @@ exports.generarVenta = async (req, res) => {
         if (!proyectoId || proyectoId === 0 || proyectoId === '' || proyectoId === null) {
             return res.status(403).json({ message: 'No autorizado: el usuario no tiene un proyecto asignado' });
         }
-        
-        const { cliente, email, producto, precio, cantidad } = req.body;
 
-        // Validar que los campos requeridos estén presentes
-        if (!producto || !precio || !cantidad) {
-            return res.status(400).json({ message: 'Producto, precio y cantidad son requeridos' });
+        const { dni, items, totalVenta, estado, tipoPago, nfac, email } = req.body;
+
+        // Buscar cliente por DNI en la tabla clientes (Postgres)
+        let clienteId = null;
+        if (dni) {
+            try {
+                const clienteQuery = `SELECT id FROM clientes WHERE dni = $1 LIMIT 1`;
+                const clienteResult = await pgPool.query(clienteQuery, [dni]);
+                if (clienteResult.rows.length > 0) {
+                    clienteId = clienteResult.rows[0].id;
+                }
+            } catch (err) {
+                console.error("Error buscando cliente por DNI:", err);
+            }
         }
 
-        // Buscar el producto en la base de datos
-        const prod = await Product.findById(producto);
-        if (!prod) {
-            return res.status(404).json({ message: 'Producto no encontrado' });
+        // Buscar y validar productos y stock
+        for (const item of items) {
+            const prod = await Product.findById(item.producto);
+            if (!prod) {
+                return res.status(404).json({ message: `Producto no encontrado: ${item.producto}` });
+            }
+            const tieneProyecto = prod.projectDetails?.some(
+                (pd) => String(pd.proyectoId) === String(proyectoId)
+            );
+            if (!tieneProyecto) {
+                return res.status(403).json({ message: 'Solo puedes vender productos de tu propio proyecto.' });
+            }
+            const detalleProyecto = prod.projectDetails.find(
+                (pd) => String(pd.proyectoId) === String(proyectoId)
+            );
+            if (!detalleProyecto) {
+                return res.status(400).json({ message: 'No se encontró detalle de proyecto para este producto.' });
+            }
+            const stockActual = Number(detalleProyecto.stock);
+            const cantidadVenta = Number(item.cantidad);
+            if (isNaN(stockActual) || isNaN(cantidadVenta) || cantidadVenta <= 0) {
+                return res.status(400).json({ message: 'Stock o cantidad inválida' });
+            }
+            if (stockActual < cantidadVenta) {
+                return res.status(400).json({ message: 'Stock insuficiente para la venta' });
+            }
         }
 
-        // Validar stock suficiente
-        const stockActual = Number(prod.stock);
-        const cantidadVenta = Number(cantidad);
-        if (isNaN(stockActual) || isNaN(cantidadVenta) || cantidadVenta <= 0) {
-            return res.status(400).json({ message: 'Stock o cantidad inválida' });
-        }
-        if (stockActual < cantidadVenta) {
-            return res.status(400).json({ message: 'Stock insuficiente para la venta' });
-        }
-
-        // Calcular el total de la venta
-        const totalVenta = precio * cantidadVenta;
-
-        // Crear la venta en MongoDB, usando el proyectoId obtenido de Postgres
         const nuevaVenta = new Ventas({
-            cliente,
+            nfac,
+            cliente: clienteId, // Solo el id de la tabla clientes de postgres
             email,
-            producto,
-            precio,
-            cantidad: cantidadVenta,
+            items,
             totalVenta,
-            proyecto: proyectoId
+            proyecto_id: String(proyectoId),
+            estado,
+            tipoPago
         });
 
         await nuevaVenta.save();
 
-        // Actualizar el stock del producto
-        prod.stock = String(stockActual - cantidadVenta);
-        await prod.save();
+        // Actualizar stock de cada producto vendido
+        for (const item of items) {
+            const prod = await Product.findById(item.producto);
+            if (prod && prod.projectDetails) {
+                const detalleProyecto = prod.projectDetails.find(
+                    (pd) => String(pd.proyectoId) === String(proyectoId)
+                );
+                if (detalleProyecto) {
+                    detalleProyecto.stock = Number(detalleProyecto.stock) - Number(item.cantidad);
+                }
+                await prod.save();
+            }
+        }
 
         res.status(201).json({
             message: 'Venta generada exitosamente',
-            ventaMongo: nuevaVenta,
-            nuevoStock: prod.stock
+            ventaMongo: nuevaVenta
         });
     } catch (error) {
+        console.error("Error en generarVenta:", error);
         res.status(500).json({ message: error.message });
     }
 };

@@ -4,8 +4,8 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret, jwtExpiration } = require('../../config/auth.config');
 //PostgresSQL Controller
 const { pgPool } = require('../../config/db');
-
-
+const axios = require('axios');
+require('dotenv').config();
 
 // Registrar un nuevo administrador
 exports.register = async (req, res) => {
@@ -85,6 +85,7 @@ exports.register = async (req, res) => {
     }
 };
 
+// Cambiar la contraseña del administrador autenticado
 exports.changePassword = async (req, res) => {
     try {
         const { oldPassword, newPassword } = req.body;
@@ -120,52 +121,6 @@ exports.changePassword = async (req, res) => {
         await user.save();
 
         res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-exports.changePasswordByDeveloper = async (req, res) => {
-    try {
-        const { username, newPassword } = req.body;
-
-        // Validar que el token esté presente
-        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
-        if (!token) {
-            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
-        }
-
-        // Verificar y decodificar el token
-        let decoded;
-        try {
-            decoded = jwt.verify(token, jwtSecret);
-        } catch (error) {
-            return res.status(401).json({ message: 'Token inválido o expirado.' });
-        }
-
-        // Verificar si el usuario autenticado es un desarrollador
-        const devQuery = `
-            SELECT rol_id 
-            FROM desarrolladores 
-            WHERE id = $1
-        `;
-        const devResult = await pgPool.query(devQuery, [decoded.devId]);
-
-        if (devResult.rows.length === 0 || devResult.rows[0].rol_id !== 2) {
-            return res.status(403).json({ message: 'No autorizado: solo los desarrolladores pueden realizar esta acción.' });
-        }
-
-        // Buscar el usuario de la tienda en MongoDB
-        const user = await User.findOne({ username });
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado.' });
-        }
-
-        // Actualizar la contraseña
-        user.password = newPassword;
-        await user.save();
-
-        res.status(200).json({ message: 'Contraseña actualizada exitosamente por el desarrollador.' });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -350,3 +305,90 @@ exports.getAllProyectos = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Obtener todos los clientes de la tabla clientes (solo para administradores autenticados)
+exports.getAllClientesPG = async (req, res) => {
+    try {
+        // Validar que el token esté presente
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+
+        // Verificar y decodificar el token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Consultar los clientes en PostgreSQL
+        const query = `SELECT nombres, apellidos, email FROM clientes`;
+        const result = await pgPool.query(query);
+
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Buscar cliente por DNI, insertar si no existe usando la API de RENIEC
+exports.getClienteByDni = async (req, res) => {
+    try {
+        const { dni } = req.params;
+        if (!dni) {
+            return res.status(400).json({ message: "DNI es requerido" });
+        }
+
+        // 1. Buscar en la tabla clientes de Postgres
+        const query = `SELECT nombres, apellidos, email FROM clientes WHERE dni = $1 LIMIT 1`;
+        const result = await pgPool.query(query, [dni]);
+
+        if (result.rows.length > 0) {
+            // Cliente encontrado en Postgres
+            return res.json(result.rows[0]);
+        }
+
+        // 2. Si no existe, consultar la API de RENIEC
+        const apiToken = process.env.DNI_TOKEN;
+        if (!apiToken) {
+            return res.status(500).json({ message: "Token de acceso para la API no configurado" });
+        }
+
+        const apiUrl = `https://api.apis.net.pe/v2/reniec/dni?numero=${dni}`;
+        const apiRes = await axios.get(apiUrl, {
+            headers: {
+                Authorization: `Bearer ${apiToken}`
+            }
+        });
+
+        const data = apiRes.data;
+        if (!data || !data.nombres || !data.apellidoPaterno || !data.apellidoMaterno) {
+            return res.status(404).json({ message: "No se encontraron datos en la API para el DNI proporcionado" });
+        }
+
+        const nombres = data.nombres;
+        const apellidos = `${data.apellidoPaterno} ${data.apellidoMaterno}`;
+        const email = ""; // Puedes dejarlo vacío o generar uno si lo deseas
+
+        // Username: concatenación de nombres y apellido paterno (sin espacios extra)
+        const username = `${nombres} ${data.apellidoPaterno}`.replace(/\s+/g, ' ').trim();
+
+        // 3. Insertar en la tabla clientes de Postgres
+        const insertQuery = `
+            INSERT INTO clientes (dni, nombres, apellidos, email, username)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING nombres, apellidos, email
+        `;
+        const insertResult = await pgPool.query(insertQuery, [dni, nombres, apellidos, email, username]);
+
+        res.json(insertResult.rows[0]);
+    } catch (error) {
+        if (error.response && error.response.data) {
+            return res.status(500).json({ message: error.response.data.message || "Error consultando la API externa" });
+        }
+        res.status(500).json({ message: error.message });
+    }
+};
+

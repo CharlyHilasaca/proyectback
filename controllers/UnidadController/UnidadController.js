@@ -9,18 +9,3 @@ exports.getAllUnidades = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-
-//agregar una nueva unidad solo si hay una sesión iniciada
-exports.addUnidad = async (req, res) => {
-    if (!req.userId) {
-        return res.status(401).json({ message: 'No autorizado. Inicie sesión.' });
-    }
-    try {
-        const { name, abbreviation, description } = req.body;
-        const newUnidad = new Unidad({ name, abbreviation, description });
-        await newUnidad.save();
-        res.status(201).json(newUnidad);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};

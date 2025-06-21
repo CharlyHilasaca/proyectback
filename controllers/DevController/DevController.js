@@ -101,3 +101,50 @@ exports.getDevToken = (req, res) => {
         res.status(401).json({ message: 'Token inválido o expirado' });
     }
 }
+
+//cambiar la contraseña administrador como desarrollador
+exports.changePasswordByDeveloper = async (req, res) => {
+    try {
+        const { username, newPassword } = req.body;
+
+        // Validar que el token esté presente
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+
+        // Verificar y decodificar el token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Verificar si el usuario autenticado es un desarrollador
+        const devQuery = `
+            SELECT rol_id 
+            FROM desarrolladores 
+            WHERE id = $1
+        `;
+        const devResult = await pgPool.query(devQuery, [decoded.devId]);
+
+        if (devResult.rows.length === 0 || devResult.rows[0].rol_id !== 2) {
+            return res.status(403).json({ message: 'No autorizado: solo los desarrolladores pueden realizar esta acción.' });
+        }
+
+        // Buscar el usuario de la tienda en MongoDB
+        const user = await User.findOne({ username });
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado.' });
+        }
+
+        // Actualizar la contraseña
+        user.password = newPassword;
+        await user.save();
+
+        res.status(200).json({ message: 'Contraseña actualizada exitosamente por el desarrollador.' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
