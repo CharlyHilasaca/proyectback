@@ -46,7 +46,6 @@ const ventaSchema = new mongoose.Schema({
     },
     tipoPago: {
         type: String,
-        enum: ['efectivo', 'yape'],
         required: false
     }
 }, { timestamps: true });

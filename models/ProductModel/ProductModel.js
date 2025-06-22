@@ -20,6 +20,10 @@ const projectSpecificSchema = new mongoose.Schema({
     stock: { // Stock específico para el proyecto
         type: Number,
         min: 0
+    },
+    stockmayor: { // Stock mayorista específico para el proyecto
+        type: Number,
+        min: 0
     }
 }, { _id: false }); // No se necesita un ID para cada subdocumento
 

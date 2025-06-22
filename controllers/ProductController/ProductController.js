@@ -254,6 +254,7 @@ exports.addProjectDetailsForProduct = async (req, res) => {
             existingProjectDetail.salePrice = salePrice;
             existingProjectDetail.unidad = unidad;
             existingProjectDetail.stock = stock;
+            existingProjectDetail.stockmayor = stock; // Actualizar stockmayor igual que stock
         } else {
             // Agregar un nuevo subdocumento
             product.projectDetails.push({
@@ -262,6 +263,7 @@ exports.addProjectDetailsForProduct = async (req, res) => {
                 salePrice,
                 unidad,
                 stock,
+                stockmayor: stock // Asignar stockmayor igual que stock
             });
         }
 
@@ -386,6 +388,81 @@ exports.getProductsByUserProject = async (req, res) => {
         res.json(products);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// Actualizar el stock de un producto para el proyecto del usuario autenticado
+exports.updateStockForProduct = async (req, res) => {
+    try {
+        const { productId } = req.params;
+        let { stockToAdd } = req.body;
+        stockToAdd = Number(stockToAdd);
+        if (isNaN(stockToAdd)) {
+            return res.status(400).json({ message: 'La cantidad de stock a agregar debe ser un número.' });
+        }
+
+        // Obtener el token de las cookies o del encabezado Authorization
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+
+        // Verificar y decodificar el token
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+
+        // Obtener el usuario autenticado desde MongoDB
+        const mongoUser = await User.findById(decoded.userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB.' });
+        }
+        const username = mongoUser.username;
+
+        // Consultar el proyecto_id en PostgreSQL
+        const projectQuery = `
+            SELECT p.proyecto_id
+            FROM proyectos_vh p
+            INNER JOIN p_c pc ON p.proyecto_id = pc.proyecto_id
+            INNER JOIN administradores c ON pc.cliente_id = c.cliente_id
+            WHERE c.usuario = $1;
+        `;
+        const projectResult = await pgPool.query(projectQuery, [username]);
+
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No se encontró un proyecto asociado al usuario.' });
+        }
+
+        const proyectoId = projectResult.rows[0].proyecto_id;
+
+        // Buscar el producto
+        const product = await Product.findById(productId);
+        if (!product) {
+            return res.status(404).json({ message: 'Producto no encontrado.' });
+        }
+
+        // Buscar el subdocumento del proyecto
+        const projectDetail = product.projectDetails.find(
+            (detail) => String(detail.proyectoId).trim() === String(proyectoId).trim()
+        );
+        if (!projectDetail) {
+            return res.status(404).json({ message: 'No existe información de stock para este proyecto en el producto.' });
+        }
+
+        // Sumar el stock recibido solo al campo stock y actualizar ambos campos con el total
+        const nuevoStock = Number(projectDetail.stock || 0) + stockToAdd;
+        projectDetail.stock = nuevoStock;
+        projectDetail.stockmayor = nuevoStock;
+
+        await product.save();
+
+        res.status(200).json({ message: 'Stock actualizado correctamente.', product });
+    } catch (error) {
+        console.error('Error en updateStockForProduct:', error, error.stack);
+        res.status(500).json({ message: error.message, stack: error.stack });
     }
 };
 

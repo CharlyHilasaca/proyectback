@@ -74,7 +74,7 @@ exports.generarVenta = async (req, res) => {
 
         const nuevaVenta = new Ventas({
             nfac,
-            cliente: clienteId, // Solo el id de la tabla clientes de postgres
+            cliente: clienteId,
             email,
             items,
             totalVenta,
@@ -112,7 +112,25 @@ exports.generarVenta = async (req, res) => {
 // Obtener todas las ventas (para el panel de administración)
 exports.getAllVentas = async (req, res) => {
     try {
-        const ventas = await Ventas.find();
+        // Obtener username y proyecto_id del usuario autenticado
+        const mongoUser = await User.findById(req.userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB' });
+        }
+        const username = mongoUser.username;
+        const projectQuery = `
+            SELECT p.proyecto_id
+            FROM p_c p
+            INNER JOIN administradores a ON p.cliente_id = a.cliente_id
+            WHERE a.usuario = $1
+        `;
+        const projectResult = await pgPool.query(projectQuery, [username]);
+        const proyectoId = projectResult.rows.length > 0 ? String(projectResult.rows[0].proyecto_id) : null;
+        if (!proyectoId) {
+            return res.status(403).json({ message: 'No autorizado: el usuario no tiene un proyecto asignado' });
+        }
+        // Buscar solo ventas de ese proyecto
+        const ventas = await Ventas.find({ proyecto_id: proyectoId });
         // Para cada venta, obtener el nombre del producto usando el id
         const ventasConNombreProducto = await Promise.all(
             ventas.map(async (venta) => {
@@ -128,6 +146,20 @@ exports.getAllVentas = async (req, res) => {
             })
         );
         res.status(200).json(ventasConNombreProducto);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Obtener la suma total de ventas pagadas
+exports.getTotalGanancias = async (req, res) => {
+    try {
+        const resultado = await Ventas.aggregate([
+            { $match: { estado: 'pagado' } },
+            { $group: { _id: null, total: { $sum: "$totalVenta" } } }
+        ]);
+        const total = resultado.length > 0 ? resultado[0].total : 0;
+        res.json({ total });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

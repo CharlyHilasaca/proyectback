@@ -80,6 +80,8 @@ router.put('/clientes/change-password', authenticateToken, userController.change
 router.put('/clientes/change-password-by-developer', authenticateToken, DevController.changePasswordByDeveloper);
 router.get('/productsresumen', authenticateToken, productController.getProductsResumen);
 router.get('/productsproyecto', authenticateToken, productController.getProductsByUserProject);
+router.put('/products/:productId/updatestock', authenticateToken, productController.updateStockForProduct);
+
 
 //CLIENTES
 router.post('/clientes/register', ClientController.register);
@@ -112,5 +114,6 @@ router.get('/auth/google/callback',
 //VENTAS
 router.post('/ventas', authenticateToken, ventaController.generarVenta);
 router.get('/ventas', authenticateToken, ventaController.getAllVentas);
+router.get('/ganancias/total', authenticateToken, ventaController.getTotalGanancias);
 
 module.exports = router
