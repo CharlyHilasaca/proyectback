@@ -83,7 +83,6 @@ router.get('/productsproyecto', authenticateToken, productController.getProducts
 router.put('/products/:productId/updatestock', authenticateToken, productController.updateStockForProduct);
 router.get('/productos/bajostock', authenticateToken, productController.getProductosBajoStock);
 
-
 //CLIENTES
 router.post('/clientes/register', ClientController.register);
 router.post('/clientes/login', ClientController.login);
@@ -116,5 +115,6 @@ router.get('/auth/google/callback',
 router.post('/ventas', authenticateToken, ventaController.generarVenta);
 router.get('/ventas', authenticateToken, ventaController.getAllVentas);
 router.get('/ganancias/total', authenticateToken, ventaController.getTotalGanancias);
+router.get('/productos/masvendidos', authenticateToken, ventaController.getProductosMasVendidos);
 
 module.exports = router

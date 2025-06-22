@@ -498,19 +498,16 @@ exports.getProductosBajoStock = async (req, res) => {
             return res.status(404).json({ message: 'No se encontró un proyecto asociado al usuario.' });
         }
         const proyectoId = projectResult.rows[0].proyecto_id;
-        // Buscar productos con bajo stock para ese proyecto
+        // Buscar productos que tengan projectDetails con ese proyectoId
         const productos = await Product.find({
-            projectDetails: {
-                $elemMatch: {
-                    proyectoId: String(proyectoId),
-                    $expr: { $lt: ["$stock", { $multiply: ["$stockmayor", 0.15] }] }
-                }
-            }
+            projectDetails: { $elemMatch: { proyectoId: String(proyectoId) } }
         });
-        // Filtrar y mapear solo los detalles del proyecto correspondiente
+        // Filtrar y mapear solo los detalles del proyecto correspondiente con bajo stock
         const productosBajoStock = productos.map(prod => {
             const detalle = prod.projectDetails.find(
-                pd => String(pd.proyectoId) === String(proyectoId) && pd.stock < (pd.stockmayor || 0) * 0.15
+                pd => String(pd.proyectoId) === String(proyectoId) &&
+                    typeof pd.stock === 'number' && typeof pd.stockmayor === 'number' &&
+                    pd.stockmayor > 0 && pd.stock < pd.stockmayor * 0.15
             );
             if (!detalle) return null;
             return {

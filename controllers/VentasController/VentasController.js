@@ -2,6 +2,8 @@ const Ventas = require('../../models/VentaModel/ventamodel');
 const User = require('../../models/ClientModel/ClientModel');
 const Product = require('../../models/ProductModel/ProductModel');
 const { pgPool } = require('../../config/db');
+const { jwtSecret } = require('../../config/auth.config');
+const jwt = require('jsonwebtoken');
 
 //generar una venta
 exports.generarVenta = async (req, res) => {
@@ -160,6 +162,85 @@ exports.getTotalGanancias = async (req, res) => {
         ]);
         const total = resultado.length > 0 ? resultado[0].total : 0;
         res.json({ total });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Obtener los 4 productos más vendidos de los últimos 30 días para el proyecto del usuario autenticado
+exports.getProductosMasVendidos = async (req, res) => {
+    try {
+        // Obtener el usuario autenticado
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+        // Permitir userId o devId en el token
+        let mongoUser = null;
+        if (decoded.userId) {
+            mongoUser = await User.findById(decoded.userId);
+        } else if (decoded.devId) {
+            mongoUser = await User.findById(decoded.devId);
+        }
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB.' });
+        }
+        const username = mongoUser.username;
+        // Consultar el proyecto_id en PostgreSQL
+        const projectQuery = `
+            SELECT p.proyecto_id
+            FROM proyectos_vh p
+            INNER JOIN p_c pc ON p.proyecto_id = pc.proyecto_id
+            INNER JOIN administradores c ON pc.cliente_id = c.cliente_id
+            WHERE c.usuario = $1;
+        `;
+        const projectResult = await pgPool.query(projectQuery, [username]);
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No se encontró un proyecto asociado al usuario.' });
+        }
+        const proyectoId = String(projectResult.rows[0].proyecto_id);
+        // Calcular fecha hace 30 días
+        const fechaLimite = new Date();
+        fechaLimite.setDate(fechaLimite.getDate() - 30);
+        // Buscar ventas del proyecto en los últimos 30 días
+        const ventas = await Ventas.find({
+            proyecto_id: proyectoId,
+            createdAt: { $gte: fechaLimite }
+        });
+        // Contar productos vendidos
+        const conteo = {};
+        ventas.forEach(venta => {
+            venta.items.forEach(item => {
+                if (!conteo[item.producto]) conteo[item.producto] = 0;
+                conteo[item.producto] += item.cantidad;
+            });
+        });
+        // Ordenar y tomar los 4 más vendidos
+        const topIds = Object.entries(conteo)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 4)
+            .map(([id]) => id);
+        // Obtener info de los productos
+        const productos = await Product.find({ _id: { $in: topIds } });
+        // Mapear resultado
+        const resultado = topIds.map(id => {
+            const prod = productos.find(p => String(p._id) === String(id));
+            if (!prod) return null;
+            return {
+                _id: prod._id,
+                name: prod.name,
+                marca: prod.marca,
+                image: prod.image,
+                cantidadVendida: conteo[id]
+            };
+        }).filter(Boolean);
+        res.json(resultado);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
