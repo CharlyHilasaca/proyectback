@@ -129,8 +129,8 @@ exports.getAllVentas = async (req, res) => {
         if (!proyectoId) {
             return res.status(403).json({ message: 'No autorizado: el usuario no tiene un proyecto asignado' });
         }
-        // Buscar solo ventas de ese proyecto
-        const ventas = await Ventas.find({ proyecto_id: proyectoId });
+        // Buscar solo ventas de ese proyecto, ordenadas por fecha descendente (más recientes primero)
+        const ventas = await Ventas.find({ proyecto_id: proyectoId }).sort({ createdAt: -1 });
         // Para cada venta, obtener el nombre del producto usando el id
         const ventasConNombreProducto = await Promise.all(
             ventas.map(async (venta) => {

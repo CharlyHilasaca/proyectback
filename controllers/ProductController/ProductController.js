@@ -466,3 +466,65 @@ exports.updateStockForProduct = async (req, res) => {
     }
 };
 
+// Obtener productos de bajo stock para el proyecto del usuario autenticado
+exports.getProductosBajoStock = async (req, res) => {
+    try {
+        // Obtener el usuario autenticado
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+        const mongoUser = await User.findById(decoded.userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB.' });
+        }
+        const username = mongoUser.username;
+        // Consultar el proyecto_id en PostgreSQL
+        const projectQuery = `
+            SELECT p.proyecto_id
+            FROM proyectos_vh p
+            INNER JOIN p_c pc ON p.proyecto_id = pc.proyecto_id
+            INNER JOIN administradores c ON pc.cliente_id = c.cliente_id
+            WHERE c.usuario = $1;
+        `;
+        const projectResult = await pgPool.query(projectQuery, [username]);
+        if (projectResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No se encontró un proyecto asociado al usuario.' });
+        }
+        const proyectoId = projectResult.rows[0].proyecto_id;
+        // Buscar productos con bajo stock para ese proyecto
+        const productos = await Product.find({
+            projectDetails: {
+                $elemMatch: {
+                    proyectoId: String(proyectoId),
+                    $expr: { $lt: ["$stock", { $multiply: ["$stockmayor", 0.15] }] }
+                }
+            }
+        });
+        // Filtrar y mapear solo los detalles del proyecto correspondiente
+        const productosBajoStock = productos.map(prod => {
+            const detalle = prod.projectDetails.find(
+                pd => String(pd.proyectoId) === String(proyectoId) && pd.stock < (pd.stockmayor || 0) * 0.15
+            );
+            if (!detalle) return null;
+            return {
+                _id: prod._id,
+                name: prod.name,
+                marca: prod.marca,
+                image: prod.image,
+                stock: detalle.stock,
+                stockmayor: detalle.stockmayor,
+            };
+        }).filter(Boolean);
+        res.json(productosBajoStock);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+

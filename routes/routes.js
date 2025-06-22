@@ -81,6 +81,7 @@ router.put('/clientes/change-password-by-developer', authenticateToken, DevContr
 router.get('/productsresumen', authenticateToken, productController.getProductsResumen);
 router.get('/productsproyecto', authenticateToken, productController.getProductsByUserProject);
 router.put('/products/:productId/updatestock', authenticateToken, productController.updateStockForProduct);
+router.get('/productos/bajostock', authenticateToken, productController.getProductosBajoStock);
 
 
 //CLIENTES
