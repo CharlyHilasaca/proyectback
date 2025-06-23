@@ -1,6 +1,8 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const { pgPool } = require('./db');
+const Email = require('../models/UserModel/UserModel');
+const crypto = require('crypto');
 
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
@@ -16,11 +18,20 @@ passport.use(new GoogleStrategy({
         const checkResult = await pgPool.query(checkQuery, [email]);
         let customer;
         if (checkResult.rows.length === 0) {
-            const insertQuery = `INSERT INTO customer (email, username) VALUES ($1, $2) RETURNING *;`;
-            const insertResult = await pgPool.query(insertQuery, [email, name]);
+            const insertQuery = `INSERT INTO customer (email, username, tipo) VALUES ($1, $2, $3) RETURNING *;`;
+            const insertResult = await pgPool.query(insertQuery, [email, name, 'google']);
             customer = insertResult.rows[0];
         } else {
             customer = checkResult.rows[0];
+        }
+
+        // Crear usuario en MongoDB si no existe
+        let mongoUser = await Email.findOne({ email });
+        if (!mongoUser) {
+            // Generar contraseña aleatoria segura
+            const randomPassword = crypto.randomBytes(16).toString('hex');
+            mongoUser = new Email({ email, password: randomPassword });
+            await mongoUser.save();
         }
 
         return done(null, { customer, profile });
