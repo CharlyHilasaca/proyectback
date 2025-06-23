@@ -185,8 +185,6 @@ exports.getProductosMasVendidos = async (req, res) => {
         let mongoUser = null;
         if (decoded.userId) {
             mongoUser = await User.findById(decoded.userId);
-        } else if (decoded.devId) {
-            mongoUser = await User.findById(decoded.devId);
         }
         if (!mongoUser) {
             return res.status(404).json({ message: 'Usuario no encontrado en MongoDB.' });

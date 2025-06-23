@@ -26,7 +26,10 @@ const storage = multer.diskStorage({
     cb(null, path.join(__dirname, '../../frontend/public/uploads'));
   },
   filename: function (req, file, cb) {
-    cb(null, file.originalname); // O usa un nombre único
+    const ext = path.extname(file.originalname);
+    const base = path.basename(file.originalname, ext);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, base + '-' + uniqueSuffix + ext);
   }
 });
 const upload = multer({ storage });
