@@ -16,6 +16,20 @@ exports.getProducts = async (req, res) => {
     }
 }
 
+exports.getProductById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const product = await Product.findById(id);
+        if (!product) {
+            return res.status(404).json({ message: 'Producto no encontrado.' });
+        }
+        res.json(product);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 // Obtener todos los productos, o solo los del proyecto si se recibe proyecto_id como query param
 exports.getProductsByProyecto = async (req, res) => {
     try {

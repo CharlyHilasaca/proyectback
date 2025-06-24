@@ -11,7 +11,15 @@ exports.register = async (req, res) => {
         const {
             email,
             password,
+            confirmPassword
         } = req.body;
+
+        if (!email || !password || !confirmPassword) {
+            return res.status(400).json({ message: 'Todos los campos son requeridos' });
+        }
+        if (password !== confirmPassword) {
+            return res.status(400).json({ message: 'Las contraseñas no coinciden' });
+        }
 
         const checkQuery = `SELECT * FROM customer WHERE email = $1`;
         const checkValues = [email];
@@ -101,7 +109,7 @@ exports.getCustomerData = async (req, res) => {
             return res.status(404).json({ message: 'No se pudo determinar el email del usuario' });
         }
 
-        const query = 'SELECT * FROM customer WHERE email = $1';
+        const query = 'SELECT * FROM clientes WHERE email = $1';
         const values = [emailToSearch];
         const result = await pgPool.query(query, values);
 

@@ -33,26 +33,7 @@ exports.register = async (req, res) => {
             return res.status(401).json({ message: 'No autorizado: token inválido' });
         }
 
-        const devId = decoded.devId;
-
-        // Obtener el username del desarrollador desde PostgreSQL
-        const devQuery = `
-            SELECT username, rol_id 
-            FROM desarrolladores 
-            WHERE id = $1
-        `;
-        const devResult = await pgPool.query(devQuery, [devId]);
-
-        if (devResult.rows.length === 0) {
-            return res.status(404).json({ message: 'Desarrollador no encontrado en PostgreSQL' });
-        }
-
-        const { username: devUsername, rol_id } = devResult.rows[0];
-
-        // Verificar si el rol_id es igual a 2
-        if (rol_id !== 2) {
-            return res.status(403).json({ message: 'No autorizado: el desarrollador no tiene permisos para registrar administradores' });
-        }
+        // Ya no se busca el desarrollador en PostgreSQL, solo se requiere el token válido
 
         // Verificar si el usuario ya existe en PostgreSQL
         const checkQuery = `SELECT * FROM administradores WHERE usuario = $1 OR email = $2`;
@@ -77,8 +58,7 @@ exports.register = async (req, res) => {
 
         res.status(201).json({
             message: 'Administrador registrado exitosamente',
-            postgres: insertResult.rows[0],
-            registradoPor: devUsername
+            postgres: insertResult.rows[0]
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

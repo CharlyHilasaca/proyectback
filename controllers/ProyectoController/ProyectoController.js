@@ -76,7 +76,7 @@ exports.getProyectos = async (req, res) => {
 
 exports.createProyecto = async (req, res) => {
     try {
-        const { nombre, descripcion, imagen_p, distrito, provincia, departamento } = req.body;
+        const { nombre, descripcion, imagen_id, distrito, provincia, departamento } = req.body;
 
         // Validar que el token esté presente
         const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
@@ -113,11 +113,11 @@ exports.createProyecto = async (req, res) => {
 
         // Insertar el proyecto en la tabla proyectos_vh
         const insertQuery = `
-            INSERT INTO proyectos_vh (categoria_id, nombre, descripcion, imagen_p, distrito, provincia, departamento)
+            INSERT INTO proyectos_vh (categoria_id, nombre, descripcion, imagen_id, distrito, provincia, departamento)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING *;
         `;
-        const values = [1, nombre, descripcion, imagen_p, distrito, provincia, departamento];
+        const values = [1, nombre, descripcion, imagen_id, distrito, provincia, departamento];
         const insertResult = await pgPool.query(insertQuery, values);
 
         res.status(201).json({

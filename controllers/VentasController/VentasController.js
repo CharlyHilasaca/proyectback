@@ -133,21 +133,47 @@ exports.getAllVentas = async (req, res) => {
         }
         // Buscar solo ventas de ese proyecto, ordenadas por fecha descendente (más recientes primero)
         const ventas = await Ventas.find({ proyecto_id: proyectoId }).sort({ createdAt: -1 });
-        // Para cada venta, obtener el nombre del producto usando el id
-        const ventasConNombreProducto = await Promise.all(
+        // Para cada venta, obtener el nombre del producto usando el id y los datos del cliente si existe
+        const ventasConDetalles = await Promise.all(
             ventas.map(async (venta) => {
-                let nombreProducto = "";
-                if (venta.producto) {
-                    const prod = await Product.findById(venta.producto);
-                    nombreProducto = prod ? prod.name : venta.producto;
+                // Mapear los items para reemplazar el id por el nombre del producto
+                const itemsConNombre = await Promise.all(
+                    (venta.items || []).map(async (item) => {
+                        let nombreProducto = item.producto;
+                        try {
+                            const prod = await Product.findById(item.producto);
+                            if (prod) nombreProducto = prod.name;
+                        } catch {}
+                        return {
+                            ...item._doc,
+                            nombre: nombreProducto
+                        };
+                    })
+                );
+                let clienteNombres = null;
+                let clienteApellidos = null;
+                let clienteCelular = null;
+                if (venta.cliente) {
+                    try {
+                        const clienteQuery = `SELECT nombres, apellidos, cellphone FROM clientes WHERE id = $1 LIMIT 1`;
+                        const clienteResult = await pgPool.query(clienteQuery, [venta.cliente]);
+                        if (clienteResult.rows.length > 0) {
+                            clienteNombres = clienteResult.rows[0].nombres;
+                            clienteApellidos = clienteResult.rows[0].apellidos;
+                            clienteCelular = clienteResult.rows[0].celphone;
+                        }
+                    } catch {}
                 }
                 return {
                     ...venta._doc,
-                    producto: nombreProducto
+                    items: itemsConNombre,
+                    cliente: clienteNombres,
+                    apellidos: clienteApellidos,
+                    celular: clienteCelular
                 };
             })
         );
-        res.status(200).json(ventasConNombreProducto);
+        res.status(200).json(ventasConDetalles);
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -156,8 +182,26 @@ exports.getAllVentas = async (req, res) => {
 // Obtener la suma total de ventas pagadas
 exports.getTotalGanancias = async (req, res) => {
     try {
+        // Obtener username y proyecto_id del usuario autenticado
+        const mongoUser = await User.findById(req.userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB' });
+        }
+        const username = mongoUser.username;
+        const projectQuery = `
+            SELECT p.proyecto_id
+            FROM p_c p
+            INNER JOIN administradores a ON p.cliente_id = a.cliente_id
+            WHERE a.usuario = $1
+        `;
+        const projectResult = await pgPool.query(projectQuery, [username]);
+        const proyectoId = projectResult.rows.length > 0 ? String(projectResult.rows[0].proyecto_id) : null;
+        if (!proyectoId) {
+            return res.status(403).json({ message: 'No autorizado: el usuario no tiene un proyecto asignado' });
+        }
+        // Sumar solo ventas de ese proyecto y estado pagado
         const resultado = await Ventas.aggregate([
-            { $match: { estado: 'pagado' } },
+            { $match: { estado: 'pagado', proyecto_id: proyectoId } },
             { $group: { _id: null, total: { $sum: "$totalVenta" } } }
         ]);
         const total = resultado.length > 0 ? resultado[0].total : 0;

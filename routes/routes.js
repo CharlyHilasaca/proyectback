@@ -48,7 +48,10 @@ router.get('/dev', authenticateToken, DevController.getDevToken);
 router.get('/dev/proyectos', authenticateToken, ProyectoController.getProyectos);
 router.get('/proyectos/:id', authenticateToken, ProyectoController.getProyectoById);
 router.get('/proyectos/imagen/:id', ProyectoController.getImagenProyecto);
-router.post('/proyectos', authenticateToken, upload.single('imagen_p'), ProyectoController.addProyecto);
+router.post('/proyectos', authenticateToken, ProyectoController.createProyecto);
+router.post('/proyectos/upload', authenticateToken, upload.single('file'), (req, res) => {
+  res.json({ imageName: req.file.filename, imageUrl: `/uploads/${req.file.filename}` });
+});
 router.put('/proyectos/:id', authenticateToken, upload.single('imagen_p'), ProyectoController.updateProyecto);
 
 
@@ -67,13 +70,14 @@ router.get('/clientespg', authenticateToken, userController.getAllClientesPG);
 
 //CATEGORIAS
 //rutas protegidas
-router.get('/categories', authenticateToken, categoryController.getAllCategories);
+router.get('/categories', categoryController.getAllCategories);
 
 //UNIDADES
 router.get('/unidades', unidadController.getAllUnidades);
 
 //PRODUCTOS
 router.get('/products', productController.getProducts);
+router.get('/products/:id', productController.getProductById);
 router.get('/productsp', productController.getProductsByProyecto);
 router.post('/products', authenticateToken, productController.addProduct);
 router.get('/productsc/:categoryId', categoryController.getProductsByCategory);

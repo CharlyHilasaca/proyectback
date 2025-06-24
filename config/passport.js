@@ -14,15 +14,20 @@ passport.use(new GoogleStrategy({
         const email = profile.emails[0].value;
         const name = profile.displayName;
 
-        const checkQuery = `SELECT * FROM customer WHERE email = $1`;
+        const checkQuery = `SELECT * FROM clientes WHERE email = $1`;
         const checkResult = await pgPool.query(checkQuery, [email]);
         let customer;
         if (checkResult.rows.length === 0) {
-            const insertQuery = `INSERT INTO customer (email, username, tipo) VALUES ($1, $2, $3) RETURNING *;`;
+            const insertQuery = `INSERT INTO clientes (email, username, tipo) VALUES ($1, $2, $3) RETURNING *;`;
             const insertResult = await pgPool.query(insertQuery, [email, name, 'google']);
             customer = insertResult.rows[0];
         } else {
             customer = checkResult.rows[0];
+            // Si el tipo no es exactamente 'google', lo actualizamos a 'google'
+            if (customer.tipo !== 'google') {
+                await pgPool.query('UPDATE clientes SET tipo = $1 WHERE email = $2', ['google', email]);
+                customer.tipo = 'google';
+            }
         }
 
         // Crear usuario en MongoDB si no existe
