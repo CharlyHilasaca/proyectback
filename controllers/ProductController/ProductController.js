@@ -29,14 +29,20 @@ exports.getProductById = async (req, res) => {
     }
 };
 
-
 // Obtener todos los productos, o solo los del proyecto si se recibe proyecto_id como query param
 exports.getProductsByProyecto = async (req, res) => {
     try {
-        const { proyectoId } = req.query;
+        const { proyectoId, categoryId } = req.query;
         let filter = {};
-        if (proyectoId) {
+        if (proyectoId && categoryId) {
+            filter = {
+                "projectDetails": { $elemMatch: { proyectoId } },
+                categoryIds: categoryId
+            };
+        } else if (proyectoId) {
             filter = { "projectDetails": { $elemMatch: { proyectoId } } };
+        } else if (categoryId) {
+            filter = { categoryIds: categoryId };
         }
         const products = await Product.find(filter);
         res.json(products);

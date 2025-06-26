@@ -65,47 +65,6 @@ exports.register = async (req, res) => {
     }
 };
 
-// Cambiar la contraseña del administrador autenticado
-exports.changePassword = async (req, res) => {
-    try {
-        const { oldPassword, newPassword } = req.body;
-
-        // Validar que el token esté presente
-        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
-        if (!token) {
-            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
-        }
-
-        // Verificar y decodificar el token
-        let decoded;
-        try {
-            decoded = jwt.verify(token, jwtSecret);
-        } catch (error) {
-            return res.status(401).json({ message: 'Token inválido o expirado.' });
-        }
-
-        // Obtener el usuario autenticado desde MongoDB
-        const user = await User.findById(decoded.userId);
-        if (!user) {
-            return res.status(404).json({ message: 'Usuario no encontrado.' });
-        }
-
-        // Verificar la contraseña actual
-        const isMatch = await user.comparePassword(oldPassword);
-        if (!isMatch) {
-            return res.status(400).json({ message: 'La contraseña actual es incorrecta.' });
-        }
-
-        // Actualizar la contraseña
-        user.password = newPassword;
-        await user.save();
-
-        res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
 //iniciar sesion
 exports.login = async (req, res) => {
     try {

@@ -34,3 +34,26 @@ exports.getProductsByCategory = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Obtener categorías asociadas a los productos de un proyecto específico
+exports.getCategoriesByProyecto = async (req, res) => {
+    const { proyectoId } = req.params;
+    try {
+        // Buscar todos los productos que tengan projectDetails con ese proyectoId
+        const products = await Product.find({ "projectDetails.proyectoId": String(proyectoId) });
+        // Obtener todos los categoryIds únicos de esos productos
+        const categoryIdsSet = new Set();
+        products.forEach(prod => {
+            if (Array.isArray(prod.categoryIds)) {
+                prod.categoryIds.forEach(cid => categoryIdsSet.add(cid.toString()));
+            }
+        });
+        const categoryIds = Array.from(categoryIdsSet);
+        // Buscar las categorías por esos IDs
+        const categories = await Category.find({ _id: { $in: categoryIds } });
+        res.json(categories);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+

@@ -45,14 +45,10 @@ router.post('/dev/logout', DevController.logoutDev);
 router.get('/dev', authenticateToken, DevController.getDevToken);
 
 //proyectos
-router.get('/dev/proyectos', authenticateToken, ProyectoController.getProyectos);
+router.get('/proyectos', ProyectoController.getProyectos);
+router.get('/proyectos/search', ProyectoController.searchProyectos);
 router.get('/proyectos/:id', authenticateToken, ProyectoController.getProyectoById);
-router.get('/proyectos/imagen/:id', ProyectoController.getImagenProyecto);
 router.post('/proyectos', authenticateToken, ProyectoController.createProyecto);
-router.post('/proyectos/upload', authenticateToken, upload.single('file'), (req, res) => {
-  res.json({ imageName: req.file.filename, imageUrl: `/uploads/${req.file.filename}` });
-});
-router.put('/proyectos/:id', authenticateToken, upload.single('imagen_p'), ProyectoController.updateProyecto);
 
 
 //ADMINISTRADORES
@@ -71,6 +67,7 @@ router.get('/clientespg', authenticateToken, userController.getAllClientesPG);
 //CATEGORIAS
 //rutas protegidas
 router.get('/categories', categoryController.getAllCategories);
+router.get('/categories/proyecto/:proyectoId', categoryController.getCategoriesByProyecto);
 
 //UNIDADES
 router.get('/unidades', unidadController.getAllUnidades);
@@ -83,7 +80,6 @@ router.post('/products', authenticateToken, productController.addProduct);
 router.get('/productsc/:categoryId', categoryController.getProductsByCategory);
 router.put('/products/:id', authenticateToken, upload.single('image'), productController.updateProduct);
 router.put('/products/:productId/project-details',authenticateToken, productController.addProjectDetailsForProduct);
-router.put('/clientes/change-password', authenticateToken, userController.changePassword);
 router.put('/clientes/change-password-by-developer', authenticateToken, DevController.changePasswordByDeveloper);
 router.get('/productsresumen', authenticateToken, productController.getProductsResumen);
 router.get('/productsproyecto', authenticateToken, productController.getProductsByUserProject);
@@ -95,7 +91,8 @@ router.post('/clientes/register', ClientController.register);
 router.post('/clientes/login', ClientController.login);
 router.get('/clientes/customerData', authenticateToken, ClientController.getCustomerData);
 router.post('/clientes/logout', authenticateToken, ClientController.logout);
-router.get('/clientes/dni/:dni', authenticateToken, userController.getClienteByDni);
+router.get('/clientes/dni/:dni', userController.getClienteByDni);
+router.put('/clientes/update', authenticateToken, ClientController.updateCustomerData);
 
 // GOOGLE AUTH
 router.get('/auth/google',
@@ -103,10 +100,16 @@ router.get('/auth/google',
 );
 router.get('/auth/google/callback',
     passport.authenticate('google', { session: false, failureRedirect: '/login' }),
-    (req, res) => {
+    async (req, res) => {
+        // Buscar el usuario en MongoDB por email para obtener el _id de Mongo
         const email = req.user.customer.email;
-        const userId = req.user.customer.id || req.user.customer._id;
         const nombres = req.user.customer.nombres;
+        const Email = require('../models/UserModel/UserModel');
+        const mongoUser = await Email.findOne({ email });
+        const userId = mongoUser ? mongoUser._id : undefined;
+
+        const jwt = require('jsonwebtoken');
+        const { jwtSecret } = require('../config/auth.config');
         const token = jwt.sign({ userId, email, nombres }, jwtSecret);
 
         res.cookie('token', token, {

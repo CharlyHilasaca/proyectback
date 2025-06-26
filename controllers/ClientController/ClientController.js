@@ -21,7 +21,7 @@ exports.register = async (req, res) => {
             return res.status(400).json({ message: 'Las contraseñas no coinciden' });
         }
 
-        const checkQuery = `SELECT * FROM customer WHERE email = $1`;
+        const checkQuery = `SELECT * FROM clientes WHERE email = $1`;
         const checkValues = [email];
         const checkResult = await pgPool.query(checkQuery, checkValues);
         if (checkResult.rows.length > 0) {
@@ -29,7 +29,7 @@ exports.register = async (req, res) => {
         }
 
         const insertQuery = `
-            INSERT INTO customer (email)
+            INSERT INTO clientes (email)
             VALUES ($1)
             RETURNING *;
         `;
@@ -99,16 +99,27 @@ exports.login = async (req, res) => {
     }
 }
 
-//obtener datos de la tabla customer por el email obtenido de la sesion
+//obtener datos de la tabla clientes por el email obtenido de la sesion
 exports.getCustomerData = async (req, res) => {
     try {
-        // Usa directamente el email del token
-        const emailToSearch = req.email;
+        // Obtener el userId del token (middleware debe ponerlo en req.userId)
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(401).json({ message: 'No autenticado' });
+        }
+
+        // Buscar el usuario en MongoDB por _id
+        const mongoUser = await Email.findById(userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB' });
+        }
+        const emailToSearch = mongoUser.email;
 
         if (!emailToSearch) {
             return res.status(404).json({ message: 'No se pudo determinar el email del usuario' });
         }
 
+        // Buscar en PostgreSQL por email
         const query = 'SELECT * FROM clientes WHERE email = $1';
         const values = [emailToSearch];
         const result = await pgPool.query(query, values);
@@ -117,7 +128,87 @@ exports.getCustomerData = async (req, res) => {
             return res.status(404).json({ message: 'Cliente no encontrado en PostgreSQL' });
         }
 
-        res.json({ customer: result.rows[0] });
+        const customer = result.rows[0];
+
+        // Si el cliente tiene proyecto_f, obtener los datos del proyecto
+        let proyecto = null;
+        if (customer.proyecto_f) {
+            const proyectoQuery = 'SELECT * FROM proyectos_vh WHERE proyecto_id = $1';
+            const proyectoResult = await pgPool.query(proyectoQuery, [customer.proyecto_f]);
+            if (proyectoResult.rows.length > 0) {
+                proyecto = proyectoResult.rows[0];
+            }
+        }
+
+        res.json({ customer, email: emailToSearch, proyecto });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Actualizar datos del cliente autenticado (solo campos permitidos)
+exports.updateCustomerData = async (req, res) => {
+    try {
+        // Obtener el userId del token (middleware debe ponerlo en req.userId)
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(401).json({ message: 'No autenticado' });
+        }
+
+        // Buscar el usuario en MongoDB por _id para obtener el email
+        const mongoUser = await Email.findById(userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB' });
+        }
+        const emailToSearch = mongoUser.email;
+        if (!emailToSearch) {
+            return res.status(404).json({ message: 'No se pudo determinar el email del usuario' });
+        }
+
+        // Campos permitidos para actualizar
+        const allowedFields = [
+            "cellphone",
+            "distrito",
+            "provincia",
+            "departamento",
+            "ubicacion",
+            "proyecto_f",
+            "tipo",
+            "username"
+        ];
+
+        // Construir dinámicamente el query y los valores
+        const updates = [];
+        const values = [];
+        let idx = 1;
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) {
+                updates.push(`${field} = $${idx}`);
+                values.push(req.body[field]);
+                idx++;
+            }
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ message: "No hay campos válidos para actualizar" });
+        }
+
+        // Agregar el email como último parámetro para el WHERE
+        values.push(emailToSearch);
+
+        const updateQuery = `
+            UPDATE clientes
+            SET ${updates.join(", ")}
+            WHERE email = $${values.length}
+            RETURNING *;
+        `;
+        const result = await pgPool.query(updateQuery, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Cliente no encontrado o no actualizado" });
+        }
+
+        res.json({ message: "Datos actualizados correctamente", customer: result.rows[0] });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
