@@ -131,7 +131,7 @@ router.get('/auth/google/callback',
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? "none" : "lax"
         });
-        res.redirect('/');
+        res.redirect('https://proyectfront.onrender.com/');
     }
 );
 
