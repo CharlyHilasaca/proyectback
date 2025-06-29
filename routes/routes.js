@@ -16,6 +16,7 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/auth.config');
 const fs = require('fs');
 const comprasController = require('../controllers/comprasController/comprasController');
+const PagosController = require('../controllers/PagosController');
 
 const uploadDir = path.join(__dirname, '../../frontend/public/uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -87,6 +88,9 @@ router.get('/productsresumen', authenticateToken, productController.getProductsR
 router.get('/productsproyecto', authenticateToken, productController.getProductsByUserProject);
 router.put('/products/:productId/updatestock', authenticateToken, productController.updateStockForProduct);
 router.get('/productos/bajostock', authenticateToken, productController.getProductosBajoStock);
+
+// PAGOS
+router.post('/pagos/checkoutpro', PagosController.pagarConCheckoutPro);
 
 //CLIENTES
 router.post('/clientes/register', ClientController.register);
