@@ -8,7 +8,7 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 exports.pagarConCheckoutPro = async (req, res) => {
   const { monto, descripcion, email } = req.body;
   // Validar monto
-  if (!monto || isNaN(monto) || Number(monto) <= 0) {
+  if (!monto || isNaN(monto) || Number(monto) <= 0.1) {
     return res.status(400).json({ error: "Monto inválido" });
   }
   const preference = {
