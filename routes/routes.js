@@ -16,7 +16,7 @@ const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/auth.config');
 const fs = require('fs');
 const comprasController = require('../controllers/comprasController/comprasController');
-const PagosController = require('../controllers/pagosController/pagosController');
+const PagosController = require('../controllers/PagosController/PagosController');
 
 const uploadDir = path.join(__dirname, '../../frontend/public/uploads');
 if (!fs.existsSync(uploadDir)) {
