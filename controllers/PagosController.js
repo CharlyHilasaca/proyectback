@@ -36,7 +36,12 @@ exports.pagarConCheckoutPro = async (req, res) => {
     });
     const data = await response.json();
     console.log("[PagosController] Respuesta Mercado Pago:", data);
-    res.json({ init_point: data.init_point, mp_response: data });
+    // Devuelve ambos enlaces para que el frontend use el correcto según el ambiente
+    res.json({ 
+      init_point: data.init_point, 
+      sandbox_init_point: data.sandbox_init_point, 
+      mp_response: data 
+    });
   } catch (err) {
     console.error("[PagosController] Error en pagarConCheckoutPro:", err);
     res.status(500).json({ error: "Error procesando el pago" });
