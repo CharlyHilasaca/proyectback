@@ -6,7 +6,11 @@ dotenv.config();
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 
 exports.pagarConCheckoutPro = async (req, res) => {
-  const { monto, descripcion } = req.body;
+  const { monto, descripcion, email } = req.body;
+  // Validar monto
+  if (!monto || isNaN(monto) || Number(monto) <= 0) {
+    return res.status(400).json({ error: "Monto inválido" });
+  }
   const preference = {
     items: [
       {
@@ -20,8 +24,15 @@ exports.pagarConCheckoutPro = async (req, res) => {
       success: "https://proyectfront.onrender.com/pago-exitoso",
       failure: "https://proyectfront.onrender.com/pago-fallido",
       pending: "https://proyectfront.onrender.com/pago-pendiente"
-    }
+    },
+    // Forzar sandbox (opcional, pero ayuda en pruebas)
+    sandbox_mode: true
   };
+
+  // Si se proporciona un email, agregar el campo payer
+  if (email) {
+    preference.payer = { email };
+  }
 
   console.log("[PagosController] Preferencia enviada a Mercado Pago:", preference);
 
