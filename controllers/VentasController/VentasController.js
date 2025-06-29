@@ -81,16 +81,41 @@ exports.generarVenta = async (req, res) => {
         const nro = ultimaVenta && ultimaVenta.nro ? ultimaVenta.nro + 1 : 1;
         const nfac = `T${proyectoId}-${nro}`; //cambio en facturacion
 
+        // Determinar origen de la venta
+        let origen = "tienda";
+        if (req.userId) {
+            // Si el usuario autenticado es un cliente (web), origen = web
+            // Puedes mejorar esta lógica si tienes roles
+            if (mongoUser && mongoUser.username === undefined && mongoUser.email) {
+                origen = "web";
+            }
+        }
+
+        // Buscar cliente por email si es venta web
+        let clienteIdByEmail = null;
+        if (origen === "web" && email) {
+            try {
+                const clienteQuery = `SELECT id FROM clientes WHERE email = $1 LIMIT 1`;
+                const clienteResult = await pgPool.query(clienteQuery, [email]);
+                if (clienteResult.rows.length > 0) {
+                    clienteIdByEmail = clienteResult.rows[0].id;
+                }
+            } catch (err) {
+                // No error fatal
+            }
+        }
+
         const nuevaVenta = new Ventas({
             nro,
             nfac,
-            cliente: clienteId,
+            cliente: clienteId || clienteIdByEmail,
             email,
             items,
             totalVenta,
             proyecto_id: String(proyectoId),
             estado,
-            tipoPago
+            tipoPago,
+            origen
         });
 
         await nuevaVenta.save();

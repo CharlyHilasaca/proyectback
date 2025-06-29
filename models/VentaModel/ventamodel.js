@@ -51,6 +51,11 @@ const ventaSchema = new mongoose.Schema({
     tipoPago: {
         type: String,
         required: false
+    },
+    origen: {
+        type: String,
+        enum: ['web', 'tienda'],
+        default: 'tienda'
     }
 }, { timestamps: true });
 
