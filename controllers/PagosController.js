@@ -15,9 +15,9 @@ exports.pagarConCheckoutPro = async (req, res) => {
       }
     ],
     back_urls: {
-      success: "http://localhost:3000/pago-exitoso",
-      failure: "http://localhost:3000/pago-fallido",
-      pending: "http://localhost:3000/pago-pendiente"
+      success: "https://proyectfront.onrender.com/pago-exitoso",
+      failure: "https://proyectfront.onrender.com/pago-fallido",
+      pending: "https://proyectfront.onrender.com/pago-pendiente"
     }
   };
 
