@@ -45,14 +45,14 @@ app.get('/logout', (req, res) => {
 
 
 // Iniciar conexiones a bases de datos
+const startDBConnections = async () => {
+  await connectMongoDB();
+  await testPgConnection();
+};
 
 module.exports = {
   app,
   startDBConnections
-};
-const startDBConnections = async () => {
-  await connectMongoDB();
-  await testPgConnection();
 };
 
 module.exports = {
