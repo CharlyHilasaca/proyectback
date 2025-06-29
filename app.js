@@ -27,6 +27,15 @@ app.use(passport.session());
 app.use(express.json());
 app.use(cookieParser());
 
+// Agrega este middleware para parsear correctamente los webhooks de Mercado Pago (raw body)
+app.post('/api/webhook', express.raw({ type: '*/*' }), (req, res, next) => {
+  // Si Mercado Pago envía JSON, intenta parsear manualmente
+  try {
+    req.body = JSON.parse(req.body.toString());
+  } catch {}
+  next();
+});
+
 // Rutas
 app.use('/api', rutas);
 

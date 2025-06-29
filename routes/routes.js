@@ -93,8 +93,8 @@ router.get('/productos/bajostock', authenticateToken, productController.getProdu
 router.post('/pagos/checkoutpro', PagosController.pagarConCheckoutPro);
 
 // WEBHOOK Mercado Pago (debe aceptar POST)
+// Cambia la ruta a '/webhook' (sin /api) si así la configuraste en Mercado Pago
 router.post('/webhook', (req, res) => {
-  // Puedes agregar lógica para procesar la notificación aquí
   console.log("[Webhook Mercado Pago] Notificación recibida:", req.body);
   res.status(200).send("OK");
 });
