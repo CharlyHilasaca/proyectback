@@ -30,7 +30,7 @@ exports.generarVenta = async (req, res) => {
             return res.status(403).json({ message: 'No autorizado: el usuario no tiene un proyecto asignado' });
         }
 
-        const { dni, items, totalVenta, estado, tipoPago, nfac, email } = req.body;
+        const { dni, items, totalVenta, estado, tipoPago, email } = req.body;
 
         // Buscar cliente por DNI en la tabla clientes (Postgres)
         let clienteId = null;
@@ -74,7 +74,15 @@ exports.generarVenta = async (req, res) => {
             }
         }
 
+        // Obtener el último nro de venta para este proyecto
+        const ultimaVenta = await Ventas.findOne({ proyecto_id: String(proyectoId) })
+            .sort({ nro: -1 })
+            .select("nro");
+        const nro = ultimaVenta && ultimaVenta.nro ? ultimaVenta.nro + 1 : 1;
+        const nfac = `T${proyectoId}-${nro}`; //cambio en facturacion
+
         const nuevaVenta = new Ventas({
+            nro,
             nfac,
             cliente: clienteId,
             email,

@@ -57,3 +57,18 @@ exports.getCategoriesByProyecto = async (req, res) => {
     }
 };
 
+// Crear una nueva categoría
+exports.createCategory = async (req, res) => {
+    try {
+        const { name, description } = req.body;
+        if (!name || !description) {
+            return res.status(400).json({ message: "Nombre y descripción son requeridos" });
+        }
+        const category = new Category({ name, description });
+        await category.save();
+        res.status(201).json(category);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+

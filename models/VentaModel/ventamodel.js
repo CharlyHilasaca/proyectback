@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 
 // modelo para generar ventas con varios productos
 const ventaSchema = new mongoose.Schema({
+    nro: {
+        type: Number,
+        required: true
+    },
     nfac: {
         type: String,
         trim: true,

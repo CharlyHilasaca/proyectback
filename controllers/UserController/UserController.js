@@ -157,18 +157,15 @@ exports.getUserProject = async (req, res) => {
         }
         const username = mongoUser.username;
 
-        // Consulta SQL corregida para obtener el proyecto y su imagen
+        // Consulta SQL actualizada para obtener el campo imagenes
         const query = `
             SELECT 
                 p.proyecto_id, 
                 p.nombre, 
-                i.id, 
-                i.tipo_mime, 
-                i.nombre_archivo
+                p.imagenes
             FROM proyectos_vh p
             INNER JOIN p_c pc ON p.proyecto_id = pc.proyecto_id
             INNER JOIN administradores c ON pc.cliente_id = c.cliente_id
-            LEFT JOIN imagenes_proyectos i ON p.proyecto_id = i.id
             WHERE c.usuario = $1
             ORDER BY p.fecha_creacion DESC
             LIMIT 1;
@@ -185,10 +182,8 @@ exports.getUserProject = async (req, res) => {
         res.json({
             proyecto_id: row.proyecto_id,
             nombre: row.nombre,
-            id: row.id,
-            tipo_mime: row.tipo_mime,
-            nombre_archivo: row.nombre_archivo,
-            imagen_url: row.id ? `/api/proyectos/imagen/${row.id}` : null
+            imagenes: row.imagenes,
+            imagen_url: row.imagenes ? `/uploads/${row.imagenes}` : null
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -330,4 +325,3 @@ exports.getClienteByDni = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
-

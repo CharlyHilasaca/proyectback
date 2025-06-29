@@ -15,6 +15,7 @@ const passport = require('passport');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../config/auth.config');
 const fs = require('fs');
+const comprasController = require('../controllers/comprasController/comprasController');
 
 const uploadDir = path.join(__dirname, '../../frontend/public/uploads');
 if (!fs.existsSync(uploadDir)) {
@@ -68,6 +69,7 @@ router.get('/clientespg', authenticateToken, userController.getAllClientesPG);
 //rutas protegidas
 router.get('/categories', categoryController.getAllCategories);
 router.get('/categories/proyecto/:proyectoId', categoryController.getCategoriesByProyecto);
+router.post('/categories', categoryController.createCategory);
 
 //UNIDADES
 router.get('/unidades', unidadController.getAllUnidades);
@@ -126,5 +128,10 @@ router.post('/ventas', authenticateToken, ventaController.generarVenta);
 router.get('/ventas', authenticateToken, ventaController.getAllVentas);
 router.get('/ganancias/total', authenticateToken, ventaController.getTotalGanancias);
 router.get('/productos/masvendidos', authenticateToken, ventaController.getProductosMasVendidos);
+
+// CARRITO DE COMPRAS (protegidas)
+router.post('/carrito', authenticateToken, comprasController.createCarrito);
+router.put('/carrito', authenticateToken, comprasController.updateCarrito);
+router.get('/carrito', authenticateToken, comprasController.getCarrito);
 
 module.exports = router
