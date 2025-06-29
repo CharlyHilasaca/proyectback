@@ -1,7 +1,7 @@
 const fetch = require("node-fetch");
 
 // Usa tu access token de pruebas o producción
-const ACCESS_TOKEN = "TEST-2951203511377830-060813-01fa05fe28ec431fe27978f6dd7b823a-2477587753";
+const ACCESS_TOKEN = "APP_USR-1386255511612102-062911-63c3809fe330a10efc3e2bdc2ad360d5-2477587753";
 
 exports.pagarConCheckoutPro = async (req, res) => {
   const { monto, descripcion } = req.body;
