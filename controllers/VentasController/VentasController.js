@@ -473,31 +473,40 @@ exports.actualizarEstadoVenta = async (req, res) => {
             return res.status(404).json({ message: "Venta no encontrada" });
         }
 
-        // Solo permitir cambio si el estado actual es "para entrega"
-        if (venta.estado !== "para entrega") {
-            return res.status(400).json({ message: "Solo se puede cambiar el estado de ventas 'para entrega'" });
-        }
-
-        // Si se cancela y se debe reponer stock
-        if (nuevoEstado === "cancelado" && reponerStock) {
-            for (const item of venta.items) {
-                const prod = await Product.findById(item.producto);
-                if (prod && prod.projectDetails) {
-                    const detalleProyecto = prod.projectDetails.find(
-                        (pd) => String(pd.proyectoId) === String(venta.proyecto_id)
-                    );
-                    if (detalleProyecto) {
-                        detalleProyecto.stock = Number(detalleProyecto.stock) + Number(item.cantidad);
+        // Permitir cancelar si el estado es 'para entrega' o 'pagado'
+        if (nuevoEstado === "cancelado") {
+            if (!["para entrega", "pagado"].includes(venta.estado)) {
+                return res.status(400).json({ message: "Solo se puede cancelar ventas con estado 'para entrega' o 'pagado'" });
+            }
+            // Si se cancela y se debe reponer stock
+            if (reponerStock) {
+                for (const item of venta.items) {
+                    const prod = await Product.findById(item.producto);
+                    if (prod && prod.projectDetails) {
+                        const detalleProyecto = prod.projectDetails.find(
+                            (pd) => String(pd.proyectoId) === String(venta.proyecto_id)
+                        );
+                        if (detalleProyecto) {
+                            detalleProyecto.stock = Number(detalleProyecto.stock) + Number(item.cantidad);
+                        }
+                        await prod.save();
                     }
-                    await prod.save();
                 }
             }
+            venta.estado = "cancelado";
+            await venta.save();
+            return res.json({ message: "Estado de venta actualizado", venta });
         }
 
-        venta.estado = nuevoEstado;
-        await venta.save();
-
-        res.json({ message: "Estado de venta actualizado", venta });
+        // Solo permitir marcar como entregado si el estado es 'para entrega'
+        if (nuevoEstado === "entregado") {
+            if (venta.estado !== "para entrega") {
+                return res.status(400).json({ message: "Solo se puede marcar como entregado ventas 'para entrega'" });
+            }
+            venta.estado = "entregado";
+            await venta.save();
+            return res.json({ message: "Estado de venta actualizado", venta });
+        }
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
