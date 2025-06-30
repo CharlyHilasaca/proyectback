@@ -1,11 +1,13 @@
 const Ventas = require('../../models/VentaModel/ventamodel');
 const User = require('../../models/ClientModel/ClientModel');
 const Product = require('../../models/ProductModel/ProductModel');
+const Carrito = require('../../models/ComprasModel/comprasModel');
+const Email = require('../../models/UserModel/UserModel');
 const { pgPool } = require('../../config/db');
 const { jwtSecret } = require('../../config/auth.config');
 const jwt = require('jsonwebtoken');
 
-//generar una venta
+//generar una venta en tienda (admin)
 exports.generarVenta = async (req, res) => {
     try {
         // 1. Obtener username desde MongoDB usando el userId del token
@@ -134,12 +136,100 @@ exports.generarVenta = async (req, res) => {
             }
         }
 
+        // Eliminar carrito pendiente del cliente si existe (por si el admin vende a un cliente con carrito)
+        if (email) {
+            await Carrito.deleteMany({ cliente_id: email, estado: 'pendiente' });
+        }
+
         res.status(201).json({
             message: 'Venta generada exitosamente',
             ventaMongo: nuevaVenta
         });
     } catch (error) {
         console.error("Error en generarVenta:", error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// generar una venta web (cliente)
+exports.generarVentaWeb = async (req, res) => {
+    try {
+        // Obtener el userId del token (middleware debe ponerlo en req.userId)
+        const userId = req.userId;
+        if (!userId) {
+            return res.status(401).json({ message: 'No autenticado' });
+        }
+        // Buscar el usuario en MongoDB por _id
+        const mongoUser = await Email.findById(userId);
+        if (!mongoUser) {
+            return res.status(404).json({ message: 'Usuario no encontrado en MongoDB' });
+        }
+        const email = mongoUser.email;
+        if (!email) {
+            return res.status(404).json({ message: 'No se pudo determinar el email del usuario' });
+        }
+        // Buscar cliente en Postgres
+        const clienteQuery = `SELECT id, proyecto_f FROM clientes WHERE email = $1 LIMIT 1`;
+        const clienteResult = await pgPool.query(clienteQuery, [email]);
+        if (clienteResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Cliente no encontrado en PostgreSQL' });
+        }
+        const clienteId = clienteResult.rows[0].id;
+        const proyecto_id = String(clienteResult.rows[0].proyecto_f);
+
+        // Buscar carrito pendiente
+        const carrito = await Carrito.findOne({ cliente_id: email, proyecto_id, estado: 'pendiente' });
+        if (!carrito) {
+            return res.status(404).json({ message: 'No existe un carrito pendiente para este usuario' });
+        }
+
+        // Obtener el último nro de venta para este proyecto
+        const ultimaVenta = await Ventas.findOne({ proyecto_id }).sort({ nro: -1 }).select("nro");
+        const nro = ultimaVenta && ultimaVenta.nro ? ultimaVenta.nro + 1 : 1;
+        const nfac = `T${proyecto_id}-${nro}`;
+
+        // Crear venta pagada
+        const nuevaVenta = new Ventas({
+            nro,
+            nfac,
+            cliente: clienteId,
+            email,
+            items: carrito.productos.map(prod => ({
+                producto: prod.producto_id,
+                precio: prod.precio,
+                cantidad: prod.cantidad
+            })),
+            totalVenta: carrito.total,
+            proyecto_id,
+            estado: "pagado",
+            tipoPago: "mercadopago",
+            origen: "web"
+        });
+        await nuevaVenta.save();
+
+        // Actualizar stock de productos
+        for (const item of carrito.productos) {
+            const prod = await Product.findById(item.producto_id);
+            if (prod && prod.projectDetails) {
+                const detalleProyecto = prod.projectDetails.find(
+                    (pd) => String(pd.proyectoId) === String(proyecto_id)
+                );
+                if (detalleProyecto) {
+                    detalleProyecto.stock = Number(detalleProyecto.stock) - Number(item.cantidad);
+                }
+                await prod.save();
+            }
+        }
+
+        // Limpiar carrito
+        await Carrito.deleteOne({ _id: carrito._id });
+
+        res.status(201).json({
+            message: 'Venta web generada exitosamente',
+            ventaMongo: nuevaVenta
+        });
+    } catch (error) {
+        console.error("Error en generarVentaWeb:", error);
         res.status(500).json({ message: error.message });
     }
 };

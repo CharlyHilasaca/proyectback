@@ -137,6 +137,7 @@ router.get('/auth/google/callback',
 
 //VENTAS
 router.post('/ventas', authenticateToken, ventaController.generarVenta);
+router.post('/ventas/web', authenticateToken, ventaController.generarVentaWeb);
 router.get('/ventas', authenticateToken, ventaController.getAllVentas);
 router.get('/ganancias/total', authenticateToken, ventaController.getTotalGanancias);
 router.get('/productos/masvendidos', authenticateToken, ventaController.getProductosMasVendidos);
