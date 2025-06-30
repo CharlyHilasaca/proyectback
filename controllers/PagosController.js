@@ -119,9 +119,9 @@ exports.pagarConCheckoutPro = async (req, res) => {
       }
     ],
     back_urls: {
-      success: "https://proyectfront.onrender.com/pago-exitoso",
-      failure: "https://proyectfront.onrender.com/pago-fallido",
-      pending: "https://proyectfront.onrender.com/pago-pendiente"
+      success: "https://proyectfront.onrender.com/",
+      failure: "https://proyectfront.onrender.com/",
+      pending: "https://proyectfront.onrender.com/"
     },
     sandbox_mode: true
   };
