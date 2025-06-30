@@ -58,20 +58,22 @@ exports.pagarConCheckoutPro = async (req, res) => {
     if (req.body.pagoExitoso) {
       // Limpiar carrito y crear venta pagada
       try {
-        // Buscar usuario por email
+        // Buscar usuario por email en MongoDB
         const mongoUser = await Email.findOne({ email });
         if (!mongoUser) throw new Error("Usuario no encontrado en MongoDB");
-        // Buscar carrito pendiente
-        const carrito = await Carrito.findOne({ cliente_id: email, estado: 'pendiente' });
-        if (!carrito) throw new Error("No existe un carrito pendiente para este usuario");
-        // Buscar id cliente en Postgres
-        const clienteQuery = `SELECT id FROM clientes WHERE email = $1 LIMIT 1`;
+        // Buscar cliente en Postgres por email
+        const clienteQuery = `SELECT id, proyecto_f FROM clientes WHERE email = $1 LIMIT 1`;
         const clienteResult = await pgPool.query(clienteQuery, [email]);
-        const clienteId = clienteResult.rows.length > 0 ? clienteResult.rows[0].id : null;
-        // Obtener proyecto_id
-        const proyecto_id = carrito.proyecto_id;
+        if (clienteResult.rows.length === 0) throw new Error("Cliente no encontrado en PostgreSQL");
+        const clienteId = clienteResult.rows[0].id;
+        const proyecto_id = String(clienteResult.rows[0].proyecto_f);
+
+        // Buscar carrito pendiente
+        const carrito = await Carrito.findOne({ cliente_id: email, proyecto_id, estado: 'pendiente' });
+        if (!carrito) throw new Error("No existe un carrito pendiente para este usuario");
+
         // Obtener nro de venta
-        const ultimaVenta = await Ventas.findOne({ proyecto_id: String(proyecto_id) }).sort({ nro: -1 }).select("nro");
+        const ultimaVenta = await Ventas.findOne({ proyecto_id }).sort({ nro: -1 }).select("nro");
         const nro = ultimaVenta && ultimaVenta.nro ? ultimaVenta.nro + 1 : 1;
         const nfac = `T${proyecto_id}-${nro}`;
         // Crear venta pagada
@@ -86,7 +88,7 @@ exports.pagarConCheckoutPro = async (req, res) => {
             cantidad: prod.cantidad
           })),
           totalVenta: carrito.total,
-          proyecto_id: String(proyecto_id),
+          proyecto_id,
           estado: "pagado",
           tipoPago: "mercadopago",
           origen: "web"

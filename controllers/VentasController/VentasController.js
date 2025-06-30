@@ -168,7 +168,7 @@ exports.generarVentaWeb = async (req, res) => {
         if (!email) {
             return res.status(404).json({ message: 'No se pudo determinar el email del usuario' });
         }
-        // Buscar cliente en Postgres
+        // Buscar cliente en Postgres usando el email
         const clienteQuery = `SELECT id, proyecto_f FROM clientes WHERE email = $1 LIMIT 1`;
         const clienteResult = await pgPool.query(clienteQuery, [email]);
         if (clienteResult.rows.length === 0) {
@@ -177,10 +177,42 @@ exports.generarVentaWeb = async (req, res) => {
         const clienteId = clienteResult.rows[0].id;
         const proyecto_id = String(clienteResult.rows[0].proyecto_f);
 
-        // Buscar carrito pendiente
+        // Buscar carrito pendiente usando el email
         const carrito = await Carrito.findOne({ cliente_id: email, proyecto_id, estado: 'pendiente' });
         if (!carrito) {
             return res.status(404).json({ message: 'No existe un carrito pendiente para este usuario' });
+        }
+
+        // Validación: carrito debe tener productos
+        if (!Array.isArray(carrito.productos) || carrito.productos.length === 0) {
+            return res.status(400).json({ message: 'El carrito está vacío' });
+        }
+
+        // Validación: total debe ser mayor a cero
+        if (typeof carrito.total !== "number" || carrito.total <= 0) {
+            return res.status(400).json({ message: 'El total del carrito es inválido' });
+        }
+
+        // Validar productos y stock
+        for (const item of carrito.productos) {
+            const prod = await Product.findById(item.producto_id);
+            if (!prod) {
+                return res.status(404).json({ message: `Producto no encontrado: ${item.producto_id}` });
+            }
+            const detalleProyecto = prod.projectDetails?.find(
+                (pd) => String(pd.proyectoId) === String(proyecto_id)
+            );
+            if (!detalleProyecto) {
+                return res.status(400).json({ message: `No se encontró detalle de proyecto para el producto: ${item.producto_id}` });
+            }
+            const stockActual = Number(detalleProyecto.stock);
+            const cantidadVenta = Number(item.cantidad);
+            if (isNaN(stockActual) || isNaN(cantidadVenta) || cantidadVenta <= 0) {
+                return res.status(400).json({ message: `Stock o cantidad inválida para el producto: ${item.producto_id}` });
+            }
+            if (stockActual < cantidadVenta) {
+                return res.status(400).json({ message: `Stock insuficiente para el producto: ${item.producto_id}` });
+            }
         }
 
         // Obtener el último nro de venta para este proyecto
