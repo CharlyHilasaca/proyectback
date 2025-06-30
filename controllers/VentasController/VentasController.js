@@ -330,6 +330,10 @@ exports.getAllVentas = async (req, res) => {
                         }
                     } catch {}
                 }
+                // Si no hay nombres ni apellidos, mostrar el email como cliente
+                if (!clienteNombres && !clienteApellidos && venta.email) {
+                    clienteNombres = venta.email;
+                }
                 return {
                     ...venta._doc,
                     items: itemsConNombre,
