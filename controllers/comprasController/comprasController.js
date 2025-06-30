@@ -1,5 +1,6 @@
 const Carrito = require('../../models/ComprasModel/comprasModel');
 const Email = require('../../models/UserModel/UserModel');
+const Ventas = require('../../models/VentaModel/ventamodel');
 const { pgPool } = require('../../config/db');
 
 // Función auxiliar para validar usuario y proyecto
@@ -104,5 +105,28 @@ exports.getCarrito = async (req, res) => {
     res.status(200).json(carrito);
   } catch (error) {
     res.status(error.status || 500).json({ message: error.message || 'Error interno' });
+  }
+};
+
+// Obtener historial de compras del cliente autenticado
+exports.getHistorialComprasCliente = async (req, res) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ message: 'No autenticado' });
+    }
+    const mongoUser = await Email.findById(userId);
+    if (!mongoUser) {
+      return res.status(404).json({ message: 'Usuario no encontrado en MongoDB' });
+    }
+    const email = mongoUser.email;
+    if (!email) {
+      return res.status(404).json({ message: 'No se pudo determinar el email del usuario' });
+    }
+    // Buscar ventas por email, ordenadas por fecha descendente
+    const ventas = await Ventas.find({ email }).sort({ createdAt: -1 });
+    res.json(ventas);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

@@ -147,5 +147,6 @@ router.put('/ventas/:ventaId/estado', authenticateToken, ventaController.actuali
 router.post('/carrito', authenticateToken, comprasController.createCarrito);
 router.put('/carrito', authenticateToken, comprasController.updateCarrito);
 router.get('/carrito', authenticateToken, comprasController.getCarrito);
+router.get('/compras/historial', authenticateToken, comprasController.getHistorialComprasCliente);
 
 module.exports = router
