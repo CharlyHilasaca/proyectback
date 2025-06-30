@@ -457,3 +457,48 @@ exports.getProductosMasVendidos = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Actualizar el estado de una venta y reponer stock si es cancelado
+exports.actualizarEstadoVenta = async (req, res) => {
+    try {
+        const { ventaId } = req.params;
+        const { nuevoEstado, reponerStock } = req.body;
+
+        if (!["entregado", "cancelado"].includes(nuevoEstado)) {
+            return res.status(400).json({ message: "Estado no válido" });
+        }
+
+        const venta = await Ventas.findById(ventaId);
+        if (!venta) {
+            return res.status(404).json({ message: "Venta no encontrada" });
+        }
+
+        // Solo permitir cambio si el estado actual es "para entrega"
+        if (venta.estado !== "para entrega") {
+            return res.status(400).json({ message: "Solo se puede cambiar el estado de ventas 'para entrega'" });
+        }
+
+        // Si se cancela y se debe reponer stock
+        if (nuevoEstado === "cancelado" && reponerStock) {
+            for (const item of venta.items) {
+                const prod = await Product.findById(item.producto);
+                if (prod && prod.projectDetails) {
+                    const detalleProyecto = prod.projectDetails.find(
+                        (pd) => String(pd.proyectoId) === String(venta.proyecto_id)
+                    );
+                    if (detalleProyecto) {
+                        detalleProyecto.stock = Number(detalleProyecto.stock) + Number(item.cantidad);
+                    }
+                    await prod.save();
+                }
+            }
+        }
+
+        venta.estado = nuevoEstado;
+        await venta.save();
+
+        res.json({ message: "Estado de venta actualizado", venta });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};

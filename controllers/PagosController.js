@@ -74,7 +74,7 @@ exports.pagarConCheckoutPro = async (req, res) => {
         })),
         totalVenta: carrito.total,
         proyecto_id,
-        estado: "pagado",
+        estado: "para entrega",
         tipoPago: "mercadopago",
         origen: "web"
       });

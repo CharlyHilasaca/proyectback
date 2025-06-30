@@ -141,6 +141,7 @@ router.post('/ventas/web', authenticateToken, ventaController.generarVentaWeb);
 router.get('/ventas', authenticateToken, ventaController.getAllVentas);
 router.get('/ganancias/total', authenticateToken, ventaController.getTotalGanancias);
 router.get('/productos/masvendidos', authenticateToken, ventaController.getProductosMasVendidos);
+router.put('/ventas/:ventaId/estado', authenticateToken, ventaController.actualizarEstadoVenta);
 
 // CARRITO DE COMPRAS (protegidas)
 router.post('/carrito', authenticateToken, comprasController.createCarrito);
