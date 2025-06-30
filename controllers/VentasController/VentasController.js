@@ -318,6 +318,17 @@ exports.getAllVentas = async (req, res) => {
                             clienteCelular = clienteResult.rows[0].celphone;
                         }
                     } catch {}
+                } else if (venta.email) {
+                    // Si no hay id pero hay email, busca por email
+                    try {
+                        const clienteQuery = `SELECT nombres, apellidos, cellphone FROM clientes WHERE email = $1 LIMIT 1`;
+                        const clienteResult = await pgPool.query(clienteQuery, [venta.email]);
+                        if (clienteResult.rows.length > 0) {
+                            clienteNombres = clienteResult.rows[0].nombres;
+                            clienteApellidos = clienteResult.rows[0].apellidos;
+                            clienteCelular = clienteResult.rows[0].celphone;
+                        }
+                    } catch {}
                 }
                 return {
                     ...venta._doc,
