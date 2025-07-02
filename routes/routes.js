@@ -131,7 +131,7 @@ router.get('/auth/google/callback',
             secure: process.env.NODE_ENV === 'production',
             sameSite: process.env.NODE_ENV === 'production' ? "none" : "lax"
         });
-        res.redirect('https://himarket.onrender.com/');
+        res.redirect('/');
     }
 );
 
