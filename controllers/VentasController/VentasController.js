@@ -349,7 +349,7 @@ exports.getAllVentas = async (req, res) => {
     }
 };
 
-// Obtener la suma total de ventas pagadas
+// Obtener la suma total de ventas pagadas (incluye "para entrega" y "entregado")
 exports.getTotalGanancias = async (req, res) => {
     try {
         // Obtener username y proyecto_id del usuario autenticado
@@ -369,9 +369,12 @@ exports.getTotalGanancias = async (req, res) => {
         if (!proyectoId) {
             return res.status(403).json({ message: 'No autorizado: el usuario no tiene un proyecto asignado' });
         }
-        // Sumar solo ventas de ese proyecto y estado pagado
+        // Sumar ventas de ese proyecto con estado "pagado", "para entrega" o "entregado"
         const resultado = await Ventas.aggregate([
-            { $match: { estado: 'pagado', proyecto_id: proyectoId } },
+            { $match: { 
+                proyecto_id: proyectoId, 
+                estado: { $in: ['pagado', 'para entrega', 'entregado'] }
+            }},
             { $group: { _id: null, total: { $sum: "$totalVenta" } } }
         ]);
         const total = resultado.length > 0 ? resultado[0].total : 0;
