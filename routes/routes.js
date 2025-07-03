@@ -82,7 +82,7 @@ router.get('/productsp', productController.getProductsByProyecto);
 router.post('/products', authenticateToken, productController.addProduct);
 router.get('/productsc/:categoryId', categoryController.getProductsByCategory);
 router.put('/products/:id', authenticateToken, upload.single('image'), productController.updateProduct);
-router.put('/products/:productId/project-details',authenticateToken, productController.addProjectDetailsForProduct);
+router.put('/products/:productId/project-details', authenticateToken, productController.addProjectDetailsForProduct);
 router.put('/clientes/change-password-by-developer', authenticateToken, DevController.changePasswordByDeveloper);
 router.get('/productsresumen', authenticateToken, productController.getProductsResumen);
 router.get('/productsproyecto', authenticateToken, productController.getProductsByUserProject);

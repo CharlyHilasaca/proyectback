@@ -188,7 +188,7 @@ exports.updateProduct = async (req, res) => {
     }
 }; //cambios mas adelante
 
-//agregar producto a tienda
+//agregar producto a tienda o actualizar detalles por proyecto
 exports.addProjectDetailsForProduct = async (req, res) => {
     try {
         const { productId } = req.params;
