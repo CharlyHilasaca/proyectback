@@ -257,8 +257,8 @@ exports.getAllClientesPG = async (req, res) => {
             return res.status(401).json({ message: 'Token inválido o expirado.' });
         }
 
-        // Consultar los clientes en PostgreSQL
-        const query = `SELECT nombres, apellidos, email FROM clientes`;
+        // Consultar los clientes en PostgreSQL, incluyendo dni, nombres, apellidos, email
+        const query = `SELECT id, dni, nombres, apellidos, email FROM clientes`;
         const result = await pgPool.query(query);
 
         res.json(result.rows);
@@ -322,6 +322,49 @@ exports.getClienteByDni = async (req, res) => {
         if (error.response && error.response.data) {
             return res.status(500).json({ message: error.response.data.message || "Error consultando la API externa" });
         }
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// Obtener historial de compras (web y tienda) y detalles para un cliente por su id
+exports.getHistorialComprasClientePG = async (req, res) => {
+    try {
+        const { clienteId } = req.query;
+        if (!clienteId) {
+            return res.status(400).json({ message: "clienteId es requerido" });
+        }
+
+        // Buscar ventas en MongoDB por cliente (web y tienda)
+        const Ventas = require('../../models/VentaModel/ventamodel');
+        const ventas = await Ventas.find({ cliente: Number(clienteId) }).sort({ createdAt: -1 });
+
+        // Para cada venta, obtener detalles de productos
+        const Product = require('../../models/ProductModel/ProductModel');
+        const ventasConDetalles = await Promise.all(
+            ventas.map(async (venta) => {
+                // Mapear los items para reemplazar el id por el nombre del producto
+                const itemsConNombre = await Promise.all(
+                    (venta.items || []).map(async (item) => {
+                        let nombreProducto = item.producto;
+                        try {
+                            const prod = await Product.findById(item.producto);
+                            if (prod) nombreProducto = prod.name;
+                        } catch {}
+                        return {
+                            ...item._doc,
+                            nombre: nombreProducto
+                        };
+                    })
+                );
+                return {
+                    ...venta._doc,
+                    items: itemsConNombre
+                };
+            })
+        );
+
+        res.json(ventasConDetalles);
+    } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
