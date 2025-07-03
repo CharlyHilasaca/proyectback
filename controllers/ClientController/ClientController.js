@@ -220,3 +220,94 @@ exports.logout = (req, res) => {
   res.json({ message: 'Sesión cerrada exitosamente' });
 };
 
+// Obtener historial de compras de un cliente por su ID (solo para administradores autenticados y del mismo proyecto)
+exports.getHistorialComprasClienteAdmin = async (req, res) => {
+  try {
+    const { clienteId } = req.query;
+    if (!clienteId) {
+      return res.status(400).json({ message: "clienteId es requerido" });
+    }
+
+    // 1. Validar autenticación y obtener el usuario administrador desde el token
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+
+    // 2. Obtener el usuario administrador desde MongoDB
+    const User = require('../../models/ClientModel/ClientModel');
+    const adminUser = await User.findById(decoded.userId);
+    if (!adminUser) {
+      return res.status(404).json({ message: 'Administrador no encontrado en MongoDB.' });
+    }
+    const username = adminUser.username;
+
+    // 3. Consultar el proyecto_id del administrador en PostgreSQL
+    const projectQuery = `
+      SELECT p.proyecto_id
+      FROM p_c p
+      INNER JOIN administradores a ON p.cliente_id = a.cliente_id
+      WHERE a.usuario = $1
+    `;
+    const projectResult = await pgPool.query(projectQuery, [username]);
+    const adminProyectoId = projectResult.rows.length > 0 ? String(projectResult.rows[0].proyecto_id) : null;
+    if (!adminProyectoId) {
+      return res.status(403).json({ message: 'No autorizado: el usuario no tiene un proyecto asignado' });
+    }
+
+    // 4. Buscar el cliente en PostgreSQL y obtener su proyecto_f
+    const clienteQuery = `SELECT proyecto_f FROM clientes WHERE id = $1 LIMIT 1`;
+    const clienteResult = await pgPool.query(clienteQuery, [clienteId]);
+    if (clienteResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Cliente no encontrado en PostgreSQL' });
+    }
+    const clienteProyectoF = String(clienteResult.rows[0].proyecto_f);
+
+    // 5. Validar que el proyecto del cliente coincida con el del administrador
+    if (clienteProyectoF !== adminProyectoId) {
+      return res.status(403).json({ message: 'No autorizado: el cliente no pertenece a tu proyecto' });
+    }
+
+    // 6. Buscar ventas en MongoDB por cliente y proyecto (web y tienda)
+    const Ventas = require('../../models/VentaModel/ventamodel');
+    const ventas = await Ventas.find({
+      cliente: Number(clienteId),
+      proyecto_id: adminProyectoId
+    }).sort({ createdAt: -1 });
+
+    // 7. Para cada venta, obtener detalles de productos
+    const Product = require('../../models/ProductModel/ProductModel');
+    const ventasConDetalles = await Promise.all(
+      ventas.map(async (venta) => {
+        const itemsConNombre = await Promise.all(
+          (venta.items || []).map(async (item) => {
+            let nombreProducto = item.producto;
+            try {
+              const prod = await Product.findById(item.producto);
+              if (prod) nombreProducto = prod.name;
+            } catch {}
+            return {
+              ...item._doc,
+              nombre: nombreProducto
+            };
+          })
+        );
+        return {
+          ...venta._doc,
+          items: itemsConNombre
+        };
+      })
+    );
+
+    res.json(ventasConDetalles);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+

@@ -107,6 +107,7 @@ router.get('/clientes/customerData', authenticateToken, ClientController.getCust
 router.post('/clientes/logout', authenticateToken, ClientController.logout);
 router.get('/clientes/dni/:dni', userController.getClienteByDni);
 router.put('/clientes/update', authenticateToken, ClientController.updateCustomerData);
+router.get('/clientespg/historialcompras', authenticateToken, ClientController.getHistorialComprasClienteAdmin);
 
 // GOOGLE AUTH
 router.get('/auth/google',
