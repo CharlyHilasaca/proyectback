@@ -5,7 +5,69 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 const { uploadFileToS3 } = require('../../utils/s3Upload');
-const Dev = require('../../models/DevModel/DevModel');
+
+// Crear un nuevo proyecto (solo desarrollador, optimiza imagen y sube a S3)
+exports.createProyecto = async (req, res) => {
+  try {
+    // Validar token de desarrollador
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+    if (!decoded.devId) {
+      return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden agregar proyectos.' });
+    }
+
+    const { nombre, descripcion, distrito, provincia, departamento } = req.body;
+    let imagenes = null;
+
+    // Procesar imagen si se envía
+    if (req.file) {
+      const file = req.file;
+      const webpFileName = path.basename(file.originalname, path.extname(file.originalname)) + '.webp';
+      const webpFullPath = path.join(path.dirname(file.path), webpFileName);
+
+      await sharp(file.path)
+        .webp({ quality: 80 })
+        .toFile(webpFullPath);
+
+      // Sube el archivo webp optimizado a S3
+      const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+      const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
+
+      // Borra los archivos temporales
+      fs.unlinkSync(file.path);
+      fs.unlinkSync(webpFullPath);
+
+      imagenes = webpFileName; // Guarda solo el nombre del archivo .webp
+    } else if (req.body.imagenes) {
+      imagenes = req.body.imagenes;
+    }
+
+    if (!nombre) {
+      return res.status(400).json({ message: 'El nombre es obligatorio.' });
+    }
+
+    const insertQuery = `
+      INSERT INTO proyectos_vh (nombre, descripcion, distrito, provincia, departamento, imagenes, fecha_creacion)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *;
+    `;
+    const values = [nombre, descripcion, distrito, provincia, departamento, imagenes];
+    const result = await pgPool.query(insertQuery, values);
+
+    res.status(201).json({ message: 'Proyecto creado exitosamente', proyecto: result.rows[0] });
+  } catch (err) {
+    console.error('Error al crear proyecto:', err);
+    res.status(500).json({ message: 'Error al crear el proyecto', detalle: err.message });
+  }
+};
 
 exports.getProyectos = async (req, res) => {
     try {
@@ -21,72 +83,6 @@ exports.getProyectos = async (req, res) => {
         }));
 
         res.status(200).json(proyectos);
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
-exports.createProyecto = async (req, res) => {
-    try {
-        const { nombre, descripcion, imagenes, distrito, provincia, departamento } = req.body;
-
-        // Validar que el token esté presente
-        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
-        if (!token) {
-            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
-        }
-
-        let decoded;
-        try {
-            // Verificar y decodificar el token
-            decoded = jwt.verify(token, jwtSecret);
-
-            // Obtener el username de MongoDB usando el devId del token
-            const dev = await Dev.findById(decoded.devId).select('username');
-            if (!dev) {
-                return res.status(404).json({ message: 'Desarrollador no encontrado en MongoDB.' });
-            }
-            decoded.username = dev.username;
-        } catch (err) {
-            return res.status(401).json({ message: 'Token inválido o expirado.' });
-        }
-
-        // Verificar si el desarrollador existe en la base de datos PostgreSQL
-        const devQuery = `
-            SELECT rol_id 
-            FROM desarrolladores 
-            WHERE username = $1
-        `;
-        const devResult = await pgPool.query(devQuery, [decoded.username]);
-
-        if (devResult.rows.length === 0 || devResult.rows[0].rol_id !== 2) {
-            return res.status(403).json({ message: 'No autorizado: solo los desarrolladores pueden crear proyectos.' });
-        }
-
-        // Insertar el proyecto en la tabla proyectos_vh (imagenes como string JSON)
-        const insertQuery = `
-            INSERT INTO proyectos_vh (categoria_id, nombre, descripcion, imagenes, distrito, provincia, departamento)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING *;
-        `;
-        const values = [
-            1,
-            nombre,
-            descripcion,
-            imagenes || null, // solo el nombre de la imagen
-            distrito,
-            provincia,
-            departamento
-        ];
-        const insertResult = await pgPool.query(insertQuery, values);
-
-        const proyecto = insertResult.rows[0];
-        proyecto.imagen = proyecto.imagenes || null;
-
-        res.status(201).json({
-            message: 'Proyecto creado exitosamente.',
-            proyecto,
-        });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }

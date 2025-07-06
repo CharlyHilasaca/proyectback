@@ -77,7 +77,8 @@ router.get('/dev', authenticateToken, DevController.getDevToken);
 router.get('/proyectos', ProyectoController.getProyectos);
 router.get('/proyectos/search', ProyectoController.searchProyectos);
 router.get('/proyectos/:id', authenticateToken, ProyectoController.getProyectoById);
-router.post('/proyectos', authenticateToken, ProyectoController.createProyecto);
+// Solo desarrollador puede agregar un proyecto
+router.post('/proyectos', authenticateToken, upload.single('imagen'), ProyectoController.createProyecto);
 
 
 //ADMINISTRADORES
