@@ -12,7 +12,7 @@ const startServer = async () => {
     });
   } catch (error) {
     console.error('❌ Error al iniciar la aplicación:', error);
-    process.exit(1);
+    // process.exit(1); // <-- Puedes comentar o eliminar esta línea para evitar que el proceso se cierre automáticamente
   }
 };
 
