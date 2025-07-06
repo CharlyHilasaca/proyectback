@@ -17,27 +17,90 @@ const { jwtSecret } = require('../config/auth.config');
 const fs = require('fs');
 const comprasController = require('../controllers/comprasController/comprasController');
 const PagosController = require('../controllers/PagosController');
+const { uploadFileToS3 } = require('../utils/s3Upload');
+const AWS = require('aws-sdk');
+const multerS3 = require('multer-s3');
+const { execFile } = require('child_process');
+const os = require('os');
+const tmp = require('tmp');
 
-const uploadDir = path.join(__dirname, '../../frontend/public/uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../frontend/public/uploads'));
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, base + '-' + uniqueSuffix + ext);
-  }
+// Configuración de AWS S3
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
 });
-const upload = multer({ storage });
+const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
 
-router.post('/upload', upload.single('file'), (req, res) => {
-  res.json({ imageName: req.file.filename, imageUrl: `/uploads/${req.file.filename}` });
+// Configuración de multer-s3 para subir directamente a S3
+const uploadS3 = multer({
+  storage: multerS3({
+    s3,
+    bucket: BUCKET_NAME,
+    acl: 'public-read',
+    contentType: multerS3.AUTO_CONTENT_TYPE,
+    key: function (req, file, cb) {
+      const ext = path.extname(file.originalname);
+      const base = path.basename(file.originalname, ext);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, `uploads/${base}-${uniqueSuffix}${ext}`);
+    }
+  })
+});
+
+// Endpoint para subir imágenes a S3
+router.post('/upload', uploadS3.single('file'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se subió ningún archivo' });
+  }
+  res.json({ imageUrl: req.file.location });
+});
+
+// Cambia el endpoint de subida para usar multer localmente, luego squoosh, luego S3
+const multer = require('multer');
+const upload = multer({ dest: os.tmpdir() });
+
+router.post('/upload', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'No se subió ningún archivo' });
+
+    // Genera un archivo temporal para la imagen webp optimizada
+    const webpPath = tmp.tmpNameSync({ postfix: '.webp' });
+
+    // Ejecuta squoosh-cli para convertir y optimizar a webp
+    await new Promise((resolve, reject) => {
+      execFile(
+        'squoosh-cli',
+        [
+          file.path,
+          '--webp',
+          '{"quality":80}',
+          '-d',
+          path.dirname(webpPath)
+        ],
+        (error, stdout, stderr) => {
+          if (error) return reject(error);
+          resolve();
+        }
+      );
+    });
+
+    // El archivo convertido tendrá el mismo nombre base pero con .webp
+    const webpFileName = path.basename(file.path, path.extname(file.path)) + '.webp';
+    const webpFullPath = path.join(path.dirname(webpPath), webpFileName);
+
+    // Sube el archivo webp optimizado a S3
+    const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
+
+    // Borra los archivos temporales
+    fs.unlinkSync(file.path);
+    fs.unlinkSync(webpFullPath);
+
+    res.json({ imageUrl: result.Location });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al procesar o subir la imagen a S3' });
+  }
 });
 
 //DESARROLLADORES
