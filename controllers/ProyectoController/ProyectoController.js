@@ -406,3 +406,43 @@ exports.getProyectoByAdmin = async (req, res) => {
   }
 };
 
+// Agregar relación cliente-proyecto a la tabla p_c (solo desarrollador)
+exports.agregarClienteAProyecto = async (req, res) => {
+  try {
+    // Validar token de desarrollador
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+    if (!decoded.devId) {
+      return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden agregar relaciones cliente-proyecto.' });
+    }
+
+    const { clienteId, proyectoId } = req.body;
+    if (!clienteId || !proyectoId) {
+      return res.status(400).json({ message: 'clienteId y proyectoId son requeridos.' });
+    }
+
+    // Verificar si ya existe la relación
+    const checkQuery = 'SELECT * FROM p_c WHERE cliente_id = $1 AND proyecto_id = $2';
+    const checkResult = await pgPool.query(checkQuery, [clienteId, proyectoId]);
+    if (checkResult.rows.length > 0) {
+      return res.status(400).json({ message: 'La relación cliente-proyecto ya existe.' });
+    }
+
+    // Insertar la relación
+    const insertQuery = 'INSERT INTO p_c (cliente_id, proyecto_id) VALUES ($1, $2) RETURNING *';
+    const insertResult = await pgPool.query(insertQuery, [clienteId, proyectoId]);
+
+    res.status(201).json({ message: 'Relación cliente-proyecto agregada correctamente.', relacion: insertResult.rows[0] });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
