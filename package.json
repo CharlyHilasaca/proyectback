@@ -33,6 +33,7 @@
     "mongodb": "^6.17.0",
     "mongoose": "^8.15.1",
     "multer": "^2.0.1",
+    "multer-s3": "^2.10.0",
     "mysql2": "^3.14.1",
     "next": "^15.3.2",
     "nodemon": "^3.1.10",
@@ -43,6 +44,7 @@
     "react-dom": "^19.1.0",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.6.1",
-    "react-toastify": "^11.0.5"
+    "react-toastify": "^11.0.5",
+    "tmp": "^0.2.3"
   }
 }

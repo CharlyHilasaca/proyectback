@@ -23,6 +23,7 @@ const multerS3 = require('multer-s3');
 const { execFile } = require('child_process');
 const os = require('os');
 const tmp = require('tmp');
+const imgController = require('../controllers/imgController/imgController');
 
 // Configuración de AWS S3
 const s3 = new AWS.S3({
@@ -57,7 +58,7 @@ router.post('/upload', uploadS3.single('file'), (req, res) => {
 });
 
 // Cambia el endpoint de subida para usar multer localmente, luego squoosh, luego S3
-const multer = require('multer');
+// Usa la instancia de multer ya declarada arriba
 const upload = multer({ dest: os.tmpdir() });
 
 router.post('/upload', upload.single('file'), async (req, res) => {
@@ -102,6 +103,9 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     res.status(500).json({ error: 'Error al procesar o subir la imagen a S3' });
   }
 });
+
+// Endpoint para subir imágenes a S3 usando Squoosh (optimización a webp)
+router.post('/upload', imgController.uploadImageOptimizedS3);
 
 //DESARROLLADORES
 router.post('/dev/register', DevController.registerDev);
