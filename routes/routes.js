@@ -90,7 +90,8 @@ router.post('/login', userController.login);
 router.post('/logout', userController.logout);
 router.get('/proyectos', userController.getAllProyectos);
 //rutas protegidas
-router.post('/register', authenticateToken, userController.register);
+// Cambia aquí: solo un desarrollador puede registrar un administrador
+router.post('/register', authenticateToken, DevController.registerAdmin);
 router.get('/user/:id', authenticateToken, userController.getUserById);
 router.get('/user', authenticateToken, userController.getUser);
 router.get('/userp', authenticateToken, userController.getUserProject);

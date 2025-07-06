@@ -148,3 +148,60 @@ exports.changePasswordByDeveloper = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+// Registrar un nuevo administrador (solo desarrollador)
+exports.registerAdmin = async (req, res) => {
+    try {
+        const {
+            nombres,
+            apellidos,
+            email,
+            password,
+            ubicacion,
+            username
+        } = req.body;
+
+        // Validar token de desarrollador
+        const devToken = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!devToken) {
+            return res.status(401).json({ message: 'No autorizado: token de sesión faltante' });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(devToken, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'No autorizado: token inválido' });
+        }
+
+        // Verificar si el usuario ya existe en PostgreSQL
+        const checkQuery = `SELECT * FROM administradores WHERE usuario = $1 OR email = $2`;
+        const checkValues = [username, email];
+        const checkResult = await pgPool.query(checkQuery, checkValues);
+        if (checkResult.rows.length > 0) {
+            return res.status(400).json({ message: 'El usuario ya existe en PostgreSQL' });
+        }
+
+        // Guardar el username y password en MongoDB
+        const User = require('../../models/ClientModel/ClientModel');
+        const newUser = new User({ username, password });
+        await newUser.save();
+
+        // Insertar el administrador en PostgreSQL
+        const insertQuery = `
+            INSERT INTO administradores (nombres, apellidos, usuario, email, ubicacion)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *;
+        `;
+        const insertValues = [nombres, apellidos, username, email, ubicacion];
+        const insertResult = await pgPool.query(insertQuery, insertValues);
+
+        res.status(201).json({
+            message: 'Administrador registrado exitosamente',
+            postgres: insertResult.rows[0]
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+

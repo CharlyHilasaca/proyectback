@@ -7,64 +7,6 @@ const { pgPool } = require('../../config/db');
 const axios = require('axios');
 require('dotenv').config();
 
-// Registrar un nuevo administrador
-exports.register = async (req, res) => {
-    try {
-        const {
-            nombres,
-            apellidos,
-            email,
-            password,
-            ubicacion,
-            username
-        } = req.body;
-
-        // Obtener el token de la cookie
-        const devToken = req.cookies.token; // Suponiendo que el token está en las cookies
-        if (!devToken) {
-            return res.status(401).json({ message: 'No autorizado: token de sesión faltante' });
-        }
-
-        // Verificar el token y extraer el ID del desarrollador
-        let decoded;
-        try {
-            decoded = jwt.verify(devToken, jwtSecret);
-        } catch (error) {
-            return res.status(401).json({ message: 'No autorizado: token inválido' });
-        }
-
-        // Ya no se busca el desarrollador en PostgreSQL, solo se requiere el token válido
-
-        // Verificar si el usuario ya existe en PostgreSQL
-        const checkQuery = `SELECT * FROM administradores WHERE usuario = $1 OR email = $2`;
-        const checkValues = [username, email];
-        const checkResult = await pgPool.query(checkQuery, checkValues);
-        if (checkResult.rows.length > 0) {
-            return res.status(400).json({ message: 'El usuario ya existe en PostgreSQL' });
-        }
-
-        // Guardar el username y password en MongoDB
-        const newUser = new User({ username, password });
-        await newUser.save();
-
-        // Insertar el administrador en PostgreSQL
-        const insertQuery = `
-            INSERT INTO administradores (nombres, apellidos, usuario, email, ubicacion)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *;
-        `;
-        const insertValues = [nombres, apellidos, username, email, ubicacion];
-        const insertResult = await pgPool.query(insertQuery, insertValues);
-
-        res.status(201).json({
-            message: 'Administrador registrado exitosamente',
-            postgres: insertResult.rows[0]
-        });
-    } catch (error) {
-        res.status(500).json({ message: error.message });
-    }
-};
-
 //iniciar sesion
 exports.login = async (req, res) => {
     try {
