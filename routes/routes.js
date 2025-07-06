@@ -81,6 +81,8 @@ router.post('/proyectos', authenticateToken, upload.single('imagen'), ProyectoCo
 router.put('/proyectos/:id', authenticateToken, upload.single('imagen'), ProyectoController.editarProyecto);
 router.delete('/proyectos/:id', authenticateToken, ProyectoController.eliminarProyecto);
 router.get('/proyectos/:proyectoId/administradores', authenticateToken, ProyectoController.getAdministradoresByProyecto);
+// Nuevo endpoint: obtener todos los administradores con su proyecto (solo desarrollador)
+router.get('/proyectos-administradores', authenticateToken, ProyectoController.getAllAdministradoresWithProyecto);
 
 //ADMINISTRADORES
 //rutas publicas
