@@ -10,18 +10,12 @@ const ventaController = require('../controllers/VentasController/VentasControlle
 const DevController = require('../controllers/DevController/DevController');
 const ProyectoController = require('../controllers/ProyectoController/ProyectoController');
 const multer = require('multer');
-const path = require('path');
-const passport = require('passport');
-const jwt = require('jsonwebtoken');
-const { jwtSecret } = require('../config/auth.config');
-const fs = require('fs');
-const comprasController = require('../controllers/comprasController/comprasController');
-const PagosController = require('../controllers/PagosController');
-const { uploadFileToS3 } = require('../utils/s3Upload');
-const { execFile } = require('child_process');
 const os = require('os');
+const path = require('path');
+const { execFile } = require('child_process');
 const tmp = require('tmp');
-const imgController = require('../controllers/imgController/imgController');
+const fs = require('fs');
+const { uploadFileToS3 } = require('../utils/s3Upload');
 
 // Cambia el endpoint de subida para usar multer localmente, luego squoosh, luego S3
 const upload = multer({ dest: os.tmpdir() });
@@ -57,6 +51,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const webpFullPath = path.join(path.dirname(webpPath), webpFileName);
 
     // Sube el archivo webp optimizado a S3
+    const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
     const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
 
     // Borra los archivos temporales
