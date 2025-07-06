@@ -19,6 +19,7 @@ const { uploadFileToS3 } = require('../utils/s3Upload');
 const PagosController = require('../controllers/PagosController');
 const passport = require('passport');
 const comprasController = require('../controllers/comprasController/comprasController');
+const squooshCli = require.resolve('.bin/squoosh-cli'); // Usa la ruta local de squoosh-cli
 
 // Configuración de multer para almacenamiento temporal local
 const upload = multer({ dest: os.tmpdir() });
@@ -38,10 +39,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // Genera un archivo temporal para la imagen webp optimizada
     const webpPath = tmp.tmpNameSync({ postfix: '.webp' });
 
-    // Ejecuta squoosh-cli para convertir y optimizar a webp
+    // Usa la ruta local de squoosh-cli
     await new Promise((resolve, reject) => {
       execFile(
-        'squoosh-cli',
+        squooshCli,
         [
           file.path,
           '--webp',
@@ -221,10 +222,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     // Genera un archivo temporal para la imagen webp optimizada
     const webpPath = tmp.tmpNameSync({ postfix: '.webp' });
 
-    // Ejecuta squoosh-cli para convertir y optimizar a webp
+    // Usa la ruta local de squoosh-cli
     await new Promise((resolve, reject) => {
       execFile(
-        'squoosh-cli',
+        squooshCli,
         [
           file.path,
           '--webp',
