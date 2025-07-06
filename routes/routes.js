@@ -77,9 +77,10 @@ router.get('/dev', authenticateToken, DevController.getDevToken);
 router.get('/proyectos', ProyectoController.getProyectos);
 router.get('/proyectos/search', ProyectoController.searchProyectos);
 router.get('/proyectos/:id', authenticateToken, ProyectoController.getProyectoById);
-// Solo desarrollador puede agregar un proyecto
 router.post('/proyectos', authenticateToken, upload.single('imagen'), ProyectoController.createProyecto);
-
+router.put('/proyectos/:id', authenticateToken, upload.single('imagen'), ProyectoController.editarProyecto);
+// Nueva ruta: eliminar proyecto (solo desarrollador)
+router.delete('/proyectos/:id', authenticateToken, ProyectoController.eliminarProyecto);
 
 //ADMINISTRADORES
 //rutas publicas
@@ -257,8 +258,5 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     res.status(500).json({ error: 'Error al procesar o subir la imagen a S3', detalle: err.message });
   }
 });
-
-// Endpoint para editar un proyecto (solo desarrollador, con optimización de imagen)
-router.put('/proyectos/:id', authenticateToken, upload.single('imagen'), ProyectoController.editarProyecto);
 
 module.exports = router

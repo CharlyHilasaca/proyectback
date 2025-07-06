@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 const { uploadFileToS3 } = require('../../utils/s3Upload');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
 // Crear un nuevo proyecto (solo desarrollador, optimiza imagen y sube a S3)
 exports.createProyecto = async (req, res) => {
@@ -243,3 +244,58 @@ exports.editarProyecto = async (req, res) => {
     res.status(500).json({ message: 'Error al editar el proyecto', detalle: err.message });
   }
 };
+
+// Eliminar un proyecto (solo desarrollador)
+exports.eliminarProyecto = async (req, res) => {
+  try {
+    // Validar token de desarrollador
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+    if (!decoded.devId) {
+      return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden eliminar proyectos.' });
+    }
+
+    const proyecto_id = req.params.id;
+
+    // Buscar el proyecto en PostgreSQL
+    const selectQuery = 'SELECT * FROM proyectos_vh WHERE proyecto_id = $1';
+    const selectResult = await pgPool.query(selectQuery, [proyecto_id]);
+    if (selectResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Proyecto no encontrado.' });
+    }
+    const proyecto = selectResult.rows[0];
+
+    // Eliminar imagen de S3 si existe
+    if (proyecto.imagenes) {
+      const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+      const s3 = new S3Client({ region: process.env.AWS_REGION });
+      try {
+        await s3.send(new DeleteObjectCommand({
+          Bucket: BUCKET_NAME,
+          Key: proyecto.imagenes
+        }));
+      } catch (err) {
+        // Solo loguea, no detiene el flujo
+        console.warn('No se pudo eliminar la imagen de S3:', err.message);
+      }
+    }
+
+    // Eliminar el proyecto de la base de datos
+    const deleteQuery = 'DELETE FROM proyectos_vh WHERE proyecto_id = $1';
+    await pgPool.query(deleteQuery, [proyecto_id]);
+
+    res.json({ message: 'Proyecto eliminado correctamente.' });
+  } catch (err) {
+    console.error('Error al eliminar proyecto:', err);
+    res.status(500).json({ message: 'Error al eliminar el proyecto', detalle: err.message });
+  }
+};
+
