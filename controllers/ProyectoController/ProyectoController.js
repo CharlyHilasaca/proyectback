@@ -1,6 +1,10 @@
+const { pgPool } = require('../../config/db');
 const jwt = require('jsonwebtoken');
 const { jwtSecret } = require('../../config/auth.config');
-const { pgPool } = require('../../config/db');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+const { uploadFileToS3 } = require('../../utils/s3Upload');
 const Dev = require('../../models/DevModel/DevModel');
 
 exports.getProyectos = async (req, res) => {
@@ -162,4 +166,86 @@ exports.searchProyectos = async (req, res) => {
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
+};
+
+// Editar un proyecto en PostgreSQL (solo desarrollador, con optimización de imagen)
+exports.editarProyecto = async (req, res) => {
+  try {
+    // Verifica que el token sea de desarrollador (devId en el token)
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+    if (!decoded.devId) {
+      return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden editar proyectos.' });
+    }
+
+    const proyecto_id = req.params.id;
+    const { nombre, descripcion, distrito, provincia, departamento } = req.body;
+
+    // Buscar el proyecto en PostgreSQL
+    const selectQuery = 'SELECT * FROM proyectos_vh WHERE proyecto_id = $1';
+    const selectResult = await pgPool.query(selectQuery, [proyecto_id]);
+    if (selectResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Proyecto no encontrado.' });
+    }
+
+    // Procesar imagen si se envía
+    let imagenes = selectResult.rows[0].imagenes;
+    if (req.file) {
+      const file = req.file;
+      const webpFileName = path.basename(file.originalname, path.extname(file.originalname)) + '.webp';
+      const webpFullPath = path.join(path.dirname(file.path), webpFileName);
+
+      await sharp(file.path)
+        .webp({ quality: 80 })
+        .toFile(webpFullPath);
+
+      // Sube el archivo webp optimizado a S3
+      const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+      const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
+
+      // Borra los archivos temporales
+      fs.unlinkSync(file.path);
+      fs.unlinkSync(webpFullPath);
+
+      imagenes = webpFileName; // Guarda solo el nombre del archivo .webp en la base de datos
+    }
+
+    // Construir el query de actualización dinámicamente
+    const fields = [];
+    const values = [];
+    let idx = 1;
+    if (nombre !== undefined) { fields.push(`nombre = $${idx++}`); values.push(nombre); }
+    if (descripcion !== undefined) { fields.push(`descripcion = $${idx++}`); values.push(descripcion); }
+    if (distrito !== undefined) { fields.push(`distrito = $${idx++}`); values.push(distrito); }
+    if (provincia !== undefined) { fields.push(`provincia = $${idx++}`); values.push(provincia); }
+    if (departamento !== undefined) { fields.push(`departamento = $${idx++}`); values.push(departamento); }
+    if (imagenes !== undefined) { fields.push(`imagenes = $${idx++}`); values.push(imagenes); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ message: 'No hay campos para actualizar.' });
+    }
+
+    values.push(proyecto_id);
+
+    const updateQuery = `
+      UPDATE proyectos_vh
+      SET ${fields.join(', ')}
+      WHERE proyecto_id = $${values.length}
+      RETURNING *;
+    `;
+    const updateResult = await pgPool.query(updateQuery, values);
+
+    res.json({ message: 'Proyecto actualizado correctamente', proyecto: updateResult.rows[0] });
+  } catch (err) {
+    console.error('Error al editar proyecto:', err);
+    res.status(500).json({ message: 'Error al editar el proyecto', detalle: err.message });
+  }
 };
