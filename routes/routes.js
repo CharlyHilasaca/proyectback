@@ -79,8 +79,8 @@ router.get('/proyectos/search', ProyectoController.searchProyectos);
 router.get('/proyectos/:id', authenticateToken, ProyectoController.getProyectoById);
 router.post('/proyectos', authenticateToken, upload.single('imagen'), ProyectoController.createProyecto);
 router.put('/proyectos/:id', authenticateToken, upload.single('imagen'), ProyectoController.editarProyecto);
-// Nueva ruta: eliminar proyecto (solo desarrollador)
 router.delete('/proyectos/:id', authenticateToken, ProyectoController.eliminarProyecto);
+router.get('/proyectos/:proyectoId/administradores', authenticateToken, ProyectoController.getAdministradoresByProyecto);
 
 //ADMINISTRADORES
 //rutas publicas

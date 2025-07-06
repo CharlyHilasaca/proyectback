@@ -299,3 +299,40 @@ exports.eliminarProyecto = async (req, res) => {
   }
 };
 
+// Obtener administradores de un proyecto (solo desarrollador)
+exports.getAdministradoresByProyecto = async (req, res) => {
+  try {
+    // Validar token de desarrollador
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+    if (!decoded.devId) {
+      return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden consultar administradores.' });
+    }
+
+    const { proyectoId } = req.params;
+    if (!proyectoId) {
+      return res.status(400).json({ message: 'proyectoId es requerido.' });
+    }
+
+    const query = `
+      SELECT a.nombres, a.apellidos, a.usuario, a.email, a.ubicacion
+      FROM administradores a
+      INNER JOIN p_c p ON p.cliente_id = a.cliente_id
+      INNER JOIN proyectos_vh pv ON pv.proyecto_id = p.proyecto_id
+      WHERE pv.proyecto_id = $1
+    `;
+    const result = await pgPool.query(query, [proyectoId]);
+    res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
