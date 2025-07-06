@@ -16,8 +16,10 @@ app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: true,
     saveUninitialized: true,
-    // Cambia secure a false para desarrollo o si no usas HTTPS en Render
-    cookie: { secure: false }
+    cookie: { 
+        secure: false, // ya está en false
+        sameSite: "lax" // agrega esto para mayor compatibilidad en Render
+    }
 }));
 
 // Inicializar passport
