@@ -16,6 +16,9 @@ const { execFile } = require('child_process');
 const tmp = require('tmp');
 const fs = require('fs');
 const { uploadFileToS3 } = require('../utils/s3Upload');
+const PagosController = require('../controllers/PagosController');
+const passport = require('passport');
+const comprasController = require('../controllers/comprasController/comprasController');
 
 // Cambia el endpoint de subida para usar multer localmente, luego squoosh, luego S3
 const upload = multer({ dest: os.tmpdir() });
@@ -64,8 +67,8 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
-// Endpoint para subir imágenes a S3 usando Squoosh (optimización a webp)
-router.post('/upload', imgController.uploadImageOptimizedS3);
+// Elimina o comenta la línea duplicada del endpoint que usa imgController porque no tienes definido ni importado imgController
+// router.post('/upload', imgController.uploadImageOptimizedS3); // <-- ELIMINA O COMENTA ESTA LÍNEA
 
 //DESARROLLADORES
 router.post('/dev/register', DevController.registerDev);
