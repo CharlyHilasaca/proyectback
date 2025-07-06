@@ -217,4 +217,21 @@ router.put('/carrito', authenticateToken, comprasController.updateCarrito);
 router.get('/carrito', authenticateToken, comprasController.getCarrito);
 router.get('/compras/historial', authenticateToken, comprasController.getHistorialComprasCliente);
 
+// El endpoint para subir imágenes es /api/upload (POST)
+// Recibe la imagen como un archivo en el campo 'file' del formulario multipart/form-data
+// Ejemplo de uso desde Flutter:
+
+/*
+final request = http.MultipartRequest('POST', Uri.parse('https://TU_BACKEND_URL/api/upload'));
+request.files.add(await http.MultipartFile.fromPath('file', imagen.path));
+final response = await request.send();
+*/
+
+// En el backend, la API la recibe así:
+router.post('/upload', upload.single('file'), async (req, res) => {
+  // req.file contiene la imagen enviada desde Flutter
+  // ...optimización y subida a S3...
+  // Devuelve { imageUrl: "https://...s3.amazonaws.com/..." }
+});
+
 module.exports = router
