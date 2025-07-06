@@ -26,8 +26,14 @@ const upload = multer({ dest: os.tmpdir() });
 // Endpoint único para subir imágenes a S3 (optimización a webp)
 router.post('/upload', upload.single('file'), async (req, res) => {
   try {
+    console.log('Llega petición de upload');
+    console.log('Archivo recibido:', req.file);
+
     const file = req.file;
-    if (!file) return res.status(400).json({ error: 'No se subió ningún archivo' });
+    if (!file) {
+      console.error('No se subió ningún archivo');
+      return res.status(400).json({ error: 'No se subió ningún archivo' });
+    }
 
     // Genera un archivo temporal para la imagen webp optimizada
     const webpPath = tmp.tmpNameSync({ postfix: '.webp' });
@@ -44,7 +50,10 @@ router.post('/upload', upload.single('file'), async (req, res) => {
           path.dirname(webpPath)
         ],
         (error, stdout, stderr) => {
-          if (error) return reject(error);
+          if (error) {
+            console.error('Error ejecutando squoosh-cli:', error, stderr);
+            return reject(error);
+          }
           resolve();
         }
       );
@@ -54,17 +63,26 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     const webpFileName = path.basename(file.path, path.extname(file.path)) + '.webp';
     const webpFullPath = path.join(path.dirname(webpPath), webpFileName);
 
+    console.log('Archivo optimizado generado:', webpFullPath);
+
     // Sube el archivo webp optimizado a S3
     const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
-    const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
+    try {
+      const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
+      console.log('Resultado de subida a S3:', result);
 
-    // Borra los archivos temporales
-    fs.unlinkSync(file.path);
-    fs.unlinkSync(webpFullPath);
+      // Borra los archivos temporales
+      fs.unlinkSync(file.path);
+      fs.unlinkSync(webpFullPath);
 
-    res.json({ imageUrl: result.Location });
+      res.json({ imageUrl: result.Location });
+    } catch (s3Error) {
+      console.error('Error subiendo a S3:', s3Error);
+      res.status(500).json({ error: 'Error al subir la imagen a S3', detalle: s3Error.message });
+    }
   } catch (err) {
-    res.status(500).json({ error: 'Error al procesar o subir la imagen a S3' });
+    console.error('Error en upload:', err);
+    res.status(500).json({ error: 'Error al procesar o subir la imagen a S3', detalle: err.message });
   }
 });
 
@@ -190,9 +208,65 @@ final response = await request.send();
 
 // En el backend, la API la recibe así:
 router.post('/upload', upload.single('file'), async (req, res) => {
-  // req.file contiene la imagen enviada desde Flutter
-  // ...optimización y subida a S3...
-  // Devuelve { imageUrl: "https://...s3.amazonaws.com/..." }
+  try {
+    console.log('Llega petición de upload');
+    console.log('Archivo recibido:', req.file);
+
+    const file = req.file;
+    if (!file) {
+      console.error('No se subió ningún archivo');
+      return res.status(400).json({ error: 'No se subió ningún archivo' });
+    }
+
+    // Genera un archivo temporal para la imagen webp optimizada
+    const webpPath = tmp.tmpNameSync({ postfix: '.webp' });
+
+    // Ejecuta squoosh-cli para convertir y optimizar a webp
+    await new Promise((resolve, reject) => {
+      execFile(
+        'squoosh-cli',
+        [
+          file.path,
+          '--webp',
+          '{"quality":80}',
+          '-d',
+          path.dirname(webpPath)
+        ],
+        (error, stdout, stderr) => {
+          if (error) {
+            console.error('Error ejecutando squoosh-cli:', error, stderr);
+            return reject(error);
+          }
+          resolve();
+        }
+      );
+    });
+
+    // El archivo convertido tendrá el mismo nombre base pero con .webp
+    const webpFileName = path.basename(file.path, path.extname(file.path)) + '.webp';
+    const webpFullPath = path.join(path.dirname(webpPath), webpFileName);
+
+    console.log('Archivo optimizado generado:', webpFullPath);
+
+    // Sube el archivo webp optimizado a S3
+    const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+    try {
+      const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
+      console.log('Resultado de subida a S3:', result);
+
+      // Borra los archivos temporales
+      fs.unlinkSync(file.path);
+      fs.unlinkSync(webpFullPath);
+
+      res.json({ imageUrl: result.Location });
+    } catch (s3Error) {
+      console.error('Error subiendo a S3:', s3Error);
+      res.status(500).json({ error: 'Error al subir la imagen a S3', detalle: s3Error.message });
+    }
+  } catch (err) {
+    console.error('Error en upload:', err);
+    res.status(500).json({ error: 'Error al procesar o subir la imagen a S3', detalle: err.message });
+  }
 });
 
 module.exports = router
