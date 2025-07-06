@@ -336,7 +336,7 @@ exports.getAdministradoresByProyecto = async (req, res) => {
   }
 };
 
-// Obtener todos los administradores con el proyecto al que pertenecen (solo desarrollador)
+// Obtener todos los administradores (solo desarrollador)
 exports.getAllAdministradoresWithProyecto = async (req, res) => {
   try {
     // Validar token de desarrollador
@@ -354,11 +354,10 @@ exports.getAllAdministradoresWithProyecto = async (req, res) => {
       return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden consultar administradores.' });
     }
 
+    // Solo los campos solicitados
     const query = `
-      SELECT pv.nombre AS proyecto, a.nombres, a.apellidos, a.usuario, a.email, a.ubicacion
-      FROM administradores a
-      INNER JOIN p_c p ON p.cliente_id = a.cliente_id
-      INNER JOIN proyectos_vh pv ON pv.proyecto_id = p.proyecto_id
+      SELECT nombres, apellidos, usuario, email, ubicacion
+      FROM administradores
     `;
     const result = await pgPool.query(query);
     res.json(result.rows);
