@@ -31,6 +31,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Prueba de endpoint de salud para Render (health check)
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+});
+
 // Rutas
 app.use('/api', rutas);
 
