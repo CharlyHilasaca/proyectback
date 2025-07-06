@@ -356,7 +356,7 @@ exports.getAllAdministradoresWithProyecto = async (req, res) => {
 
     // Solo los campos solicitados
     const query = `
-      SELECT nombres, apellidos, usuario, email, ubicacion
+      SELECT cliente_id, nombres, apellidos, usuario, email, ubicacion
       FROM administradores
     `;
     const result = await pgPool.query(query);
