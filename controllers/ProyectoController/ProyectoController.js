@@ -168,7 +168,7 @@ exports.searchProyectos = async (req, res) => {
     }
 };
 
-// Editar un proyecto en PostgreSQL (solo desarrollador, con optimización de imagen)
+// Editar un proyecto en PostgreSQL (actualiza updated_at en cada POST/PUT)
 exports.editarProyecto = async (req, res) => {
   try {
     // Verifica que el token sea de desarrollador (devId en el token)
@@ -215,10 +215,10 @@ exports.editarProyecto = async (req, res) => {
       fs.unlinkSync(file.path);
       fs.unlinkSync(webpFullPath);
 
-      imagenes = webpFileName; // Guarda solo el nombre del archivo .webp en la base de datos
+      imagenes = webpFileName;
     }
 
-    // Construir el query de actualización dinámicamente
+    // Construir el query de actualización dinámicamente, siempre actualiza updated_at
     const fields = [];
     const values = [];
     let idx = 1;
@@ -228,10 +228,8 @@ exports.editarProyecto = async (req, res) => {
     if (provincia !== undefined) { fields.push(`provincia = $${idx++}`); values.push(provincia); }
     if (departamento !== undefined) { fields.push(`departamento = $${idx++}`); values.push(departamento); }
     if (imagenes !== undefined) { fields.push(`imagenes = $${idx++}`); values.push(imagenes); }
-
-    if (fields.length === 0) {
-      return res.status(400).json({ message: 'No hay campos para actualizar.' });
-    }
+    // Siempre actualiza updated_at
+    fields.push(`updated_at = NOW()`);
 
     values.push(proyecto_id);
 
