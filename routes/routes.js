@@ -18,47 +18,12 @@ const fs = require('fs');
 const comprasController = require('../controllers/comprasController/comprasController');
 const PagosController = require('../controllers/PagosController');
 const { uploadFileToS3 } = require('../utils/s3Upload');
-const AWS = require('aws-sdk');
-const multerS3 = require('multer-s3');
 const { execFile } = require('child_process');
 const os = require('os');
 const tmp = require('tmp');
 const imgController = require('../controllers/imgController/imgController');
 
-// Configuración de AWS S3
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  region: process.env.AWS_REGION,
-});
-const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
-
-// Configuración de multer-s3 para subir directamente a S3
-const uploadS3 = multer({
-  storage: multerS3({
-    s3,
-    bucket: BUCKET_NAME,
-    acl: 'public-read',
-    contentType: multerS3.AUTO_CONTENT_TYPE,
-    key: function (req, file, cb) {
-      const ext = path.extname(file.originalname);
-      const base = path.basename(file.originalname, ext);
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, `uploads/${base}-${uniqueSuffix}${ext}`);
-    }
-  })
-});
-
-// Endpoint para subir imágenes a S3
-router.post('/upload', uploadS3.single('file'), (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No se subió ningún archivo' });
-  }
-  res.json({ imageUrl: req.file.location });
-});
-
 // Cambia el endpoint de subida para usar multer localmente, luego squoosh, luego S3
-// Usa la instancia de multer ya declarada arriba
 const upload = multer({ dest: os.tmpdir() });
 
 router.post('/upload', upload.single('file'), async (req, res) => {
