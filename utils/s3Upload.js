@@ -22,8 +22,8 @@ exports.uploadFileToS3 = async (filePath, fileName, bucketName) => {
     Bucket: bucketName,
     Key: fileName,
     Body: fileBuffer,
-    ContentType: 'image/webp',
-    ACL: 'public-read'
+    ContentType: 'image/webp'
+    // ACL: 'public-read' // <-- ELIMINA o comenta esta línea
   };
   await s3.send(new PutObjectCommand(params));
   // Construye la URL pública manualmente
