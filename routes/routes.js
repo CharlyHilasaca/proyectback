@@ -19,7 +19,7 @@ const { uploadFileToS3 } = require('../utils/s3Upload');
 const PagosController = require('../controllers/PagosController');
 const passport = require('passport');
 const comprasController = require('../controllers/comprasController/comprasController');
-const squooshCli = require.resolve('.bin/squoosh-cli'); // Usa la ruta local de squoosh-cli
+const sharp = require('sharp');
 
 // Configuración de multer para almacenamiento temporal local
 const upload = multer({ dest: os.tmpdir() });
@@ -36,33 +36,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No se subió ningún archivo' });
     }
 
-    // Genera un archivo temporal para la imagen webp optimizada
-    const webpPath = tmp.tmpNameSync({ postfix: '.webp' });
+    // Convierte la imagen a webp usando sharp
+    const webpFileName = path.basename(file.originalname, path.extname(file.originalname)) + '.webp';
+    const webpFullPath = path.join(path.dirname(file.path), webpFileName);
 
-    // Usa la ruta local de squoosh-cli
-    await new Promise((resolve, reject) => {
-      execFile(
-        squooshCli,
-        [
-          file.path,
-          '--webp',
-          '{"quality":80}',
-          '-d',
-          path.dirname(webpPath)
-        ],
-        (error, stdout, stderr) => {
-          if (error) {
-            console.error('Error ejecutando squoosh-cli:', error, stderr);
-            return reject(error);
-          }
-          resolve();
-        }
-      );
-    });
-
-    // El archivo convertido tendrá el mismo nombre base pero con .webp
-    const webpFileName = path.basename(file.path, path.extname(file.path)) + '.webp';
-    const webpFullPath = path.join(path.dirname(webpPath), webpFileName);
+    await sharp(file.path)
+      .webp({ quality: 80 })
+      .toFile(webpFullPath);
 
     console.log('Archivo optimizado generado:', webpFullPath);
 
@@ -219,33 +199,13 @@ router.post('/upload', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'No se subió ningún archivo' });
     }
 
-    // Genera un archivo temporal para la imagen webp optimizada
-    const webpPath = tmp.tmpNameSync({ postfix: '.webp' });
+    // Convierte la imagen a webp usando sharp
+    const webpFileName = path.basename(file.originalname, path.extname(file.originalname)) + '.webp';
+    const webpFullPath = path.join(path.dirname(file.path), webpFileName);
 
-    // Usa la ruta local de squoosh-cli
-    await new Promise((resolve, reject) => {
-      execFile(
-        squooshCli,
-        [
-          file.path,
-          '--webp',
-          '{"quality":80}',
-          '-d',
-          path.dirname(webpPath)
-        ],
-        (error, stdout, stderr) => {
-          if (error) {
-            console.error('Error ejecutando squoosh-cli:', error, stderr);
-            return reject(error);
-          }
-          resolve();
-        }
-      );
-    });
-
-    // El archivo convertido tendrá el mismo nombre base pero con .webp
-    const webpFileName = path.basename(file.path, path.extname(file.path)) + '.webp';
-    const webpFullPath = path.join(path.dirname(webpPath), webpFileName);
+    await sharp(file.path)
+      .webp({ quality: 80 })
+      .toFile(webpFullPath);
 
     console.log('Archivo optimizado generado:', webpFullPath);
 
