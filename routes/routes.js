@@ -106,7 +106,43 @@ router.get('/unidades', unidadController.getAllUnidades);
 router.get('/products', productController.getProducts);
 router.get('/products/:id', productController.getProductById);
 router.get('/productsp', productController.getProductsByProyecto);
-router.post('/products', authenticateToken, productController.addProduct);
+router.post('/products', authenticateToken, upload.single('image'), async (req, res) => {
+  try {
+    // Procesa la imagen si se envía
+    let imageUrl = null;
+    if (req.file) {
+      // Convierte la imagen a webp usando sharp
+      const sharp = require('sharp');
+      const file = req.file;
+      const webpFileName = path.basename(file.originalname, path.extname(file.originalname)) + '.webp';
+      const webpFullPath = path.join(path.dirname(file.path), webpFileName);
+
+      await sharp(file.path)
+        .webp({ quality: 80 })
+        .toFile(webpFullPath);
+
+      // Sube el archivo webp optimizado a S3
+      const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+      const { uploadFileToS3 } = require('../utils/s3Upload');
+      const result = await uploadFileToS3(webpFullPath, webpFileName, BUCKET_NAME);
+
+      // Borra los archivos temporales
+      fs.unlinkSync(file.path);
+      fs.unlinkSync(webpFullPath);
+
+      imageUrl = result.Location;
+    }
+
+    // Agrega la URL de la imagen al body antes de llamar al controlador
+    req.body.image = imageUrl;
+
+    // Llama al controlador original
+    await productController.addProduct(req, res);
+  } catch (err) {
+    console.error('Error en subida de imagen y creación de producto:', err);
+    res.status(500).json({ error: 'Error al subir la imagen y crear el producto', detalle: err.message });
+  }
+});
 router.get('/productsc/:categoryId', categoryController.getProductsByCategory);
 router.put('/products/:id', authenticateToken, upload.single('image'), productController.updateProduct);
 router.put('/products/:productId/project-details', authenticateToken, productController.addProjectDetailsForProduct);
