@@ -24,6 +24,10 @@ const projectSpecificSchema = new mongoose.Schema({
     stockmayor: { // Stock mayorista específico para el proyecto
         type: Number,
         min: 0
+    },
+    description: { // Descripción específica por proyecto
+        type: String,
+        trim: true
     }
 }, { _id: false }); // No se necesita un ID para cada subdocumento
 
@@ -35,10 +39,6 @@ const productSchema = new mongoose.Schema({
         trim: true
     },
     marca: {
-        type: String,
-        trim: true
-    },
-    description: { 
         type: String,
         trim: true
     },

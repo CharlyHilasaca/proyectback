@@ -78,7 +78,12 @@ exports.addProduct = async (req, res) => {
         }
 
         // Extraer los datos del cuerpo de la solicitud
-        let { name, marca, description, categoryName, image } = req.body;
+        let { name, marca, categoryName, image } = req.body; // description eliminado
+
+        // Si la imagen viene de un upload (ejemplo: multer-s3), usa req.file.location
+        if (req.file && req.file.location) {
+            image = req.file.location;
+        }
 
         // Validar campos requeridos (description y marca pueden ser nulos o vacíos)
         if (!name || !categoryName || !image) {
@@ -99,11 +104,10 @@ exports.addProduct = async (req, res) => {
             return res.status(400).json({ message: 'El nombre de la categoría es obligatorio.' });
         }
 
-        // Guardar el producto con el nombre de la imagen recibido en el body
+        // Guardar el producto con el nombre de la imagen recibido en el body o la url de S3
         const newProduct = new Product({
             name,
             marca: marca || null,
-            description: description || null,
             image,
             categoryIds: [category._id]
         });
