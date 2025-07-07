@@ -87,7 +87,7 @@ router.get('/proyectos-administradores', authenticateToken, ProyectoController.g
 // Nuevo endpoint: agregar cliente a proyecto (solo desarrollador)
 router.post('/proyectos/agregar-cliente', authenticateToken, ProyectoController.agregarClienteAProyecto);
 // Nuevo endpoint: eliminar cliente de proyecto (solo desarrollador)
-router.delete('/proyectos/eliminar-cliente', authenticateToken, ProyectoController.eliminarClienteDeProyecto);
+router.delete('/proyectosr/eliminar-cliente', authenticateToken, ProyectoController.eliminarClienteDeProyecto);
 
 //ADMINISTRADORES
 //rutas publicas
