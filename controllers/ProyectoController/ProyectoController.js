@@ -446,3 +446,39 @@ exports.agregarClienteAProyecto = async (req, res) => {
   }
 };
 
+// Eliminar relación cliente-proyecto (solo desarrollador)
+exports.eliminarClienteDeProyecto = async (req, res) => {
+  try {
+    // Validar token de desarrollador
+    const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+    }
+    let decoded;
+    try {
+      decoded = jwt.verify(token, jwtSecret);
+    } catch (error) {
+      return res.status(401).json({ message: 'Token inválido o expirado.' });
+    }
+    if (!decoded.devId) {
+      return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden eliminar relaciones cliente-proyecto.' });
+    }
+
+    const { clienteId, proyectoId } = req.body;
+    if (!clienteId || !proyectoId) {
+      return res.status(400).json({ message: 'clienteId y proyectoId son requeridos.' });
+    }
+
+    // Eliminar la relación
+    const deleteQuery = 'DELETE FROM p_c WHERE cliente_id = $1 AND proyecto_id = $2 RETURNING *';
+    const result = await pgPool.query(deleteQuery, [clienteId, proyectoId]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No existe la relación cliente-proyecto.' });
+    }
+
+    res.json({ message: 'Relación cliente-proyecto eliminada correctamente.', relacion: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+

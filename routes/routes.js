@@ -72,6 +72,8 @@ router.post('/dev/register', DevController.registerDev);
 router.post('/dev/login', DevController.loginDev);
 router.post('/dev/logout', DevController.logoutDev);
 router.get('/dev', authenticateToken, DevController.getDevToken);
+router.get('/admin/:clienteId/proyecto', authenticateToken, ProyectoController.getProyectoByAdmin);
+router.delete('/admin/:clienteId', authenticateToken, DevController.deleteAdmin);
 
 //proyectos
 router.get('/proyectos', ProyectoController.getProyectos);
@@ -82,9 +84,10 @@ router.put('/proyectos/:id', authenticateToken, upload.single('imagen'), Proyect
 router.delete('/proyectos/:id', authenticateToken, ProyectoController.eliminarProyecto);
 router.get('/proyectos/:proyectoId/administradores', authenticateToken, ProyectoController.getAdministradoresByProyecto);
 router.get('/proyectos-administradores', authenticateToken, ProyectoController.getAllAdministradoresWithProyecto);
-router.get('/admin/:clienteId/proyecto', authenticateToken, ProyectoController.getProyectoByAdmin);
 // Nuevo endpoint: agregar cliente a proyecto (solo desarrollador)
 router.post('/proyectos/agregar-cliente', authenticateToken, ProyectoController.agregarClienteAProyecto);
+// Nuevo endpoint: eliminar cliente de proyecto (solo desarrollador)
+router.delete('/proyectos/eliminar-cliente', authenticateToken, ProyectoController.eliminarClienteDeProyecto);
 
 //ADMINISTRADORES
 //rutas publicas
@@ -263,8 +266,5 @@ router.post('/upload', upload.single('file'), async (req, res) => {
     res.status(500).json({ error: 'Error al procesar o subir la imagen a S3', detalle: err.message });
   }
 });
-
-// Eliminar administrador (solo desarrollador)
-router.delete('/admin/:clienteId', authenticateToken, DevController.deleteAdmin);
 
 module.exports = router
