@@ -390,7 +390,7 @@ exports.getProyectoByAdmin = async (req, res) => {
     }
 
     const query = `
-      SELECT pv.nombre, pv.distrito, pv.provincia, pv.departamento
+      SELECT pv.proyecto_id, pv.nombre, pv.distrito, pv.provincia, pv.departamento
       FROM administradores a
       INNER JOIN p_c p ON p.cliente_id = a.cliente_id
       INNER JOIN proyectos_vh pv ON pv.proyecto_id = p.proyecto_id
