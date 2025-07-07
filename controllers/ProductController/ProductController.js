@@ -196,7 +196,7 @@ exports.updateProduct = async (req, res) => {
 exports.addProjectDetailsForProduct = async (req, res) => {
     try {
         const { productId } = req.params;
-        let { purchasePrice, salePrice, unidad, stock } = req.body;
+        let { purchasePrice, salePrice, unidad, stock, descripcion } = req.body; // <-- agrega descripcion
 
         // Validar campos requeridos
         if (
@@ -279,6 +279,9 @@ exports.addProjectDetailsForProduct = async (req, res) => {
             existingProjectDetail.unidad = unidad;
             existingProjectDetail.stock = stock;
             existingProjectDetail.stockmayor = stock; // Actualizar stockmayor igual que stock
+            if (descripcion !== undefined) {
+                existingProjectDetail.descripcion = descripcion; // <-- agrega descripción por proyecto
+            }
         } else {
             // Agregar un nuevo subdocumento
             product.projectDetails.push({
@@ -287,7 +290,8 @@ exports.addProjectDetailsForProduct = async (req, res) => {
                 salePrice,
                 unidad,
                 stock,
-                stockmayor: stock // Asignar stockmayor igual que stock
+                stockmayor: stock, // Asignar stockmayor igual que stock
+                descripcion // <-- agrega descripción por proyecto
             });
         }
 

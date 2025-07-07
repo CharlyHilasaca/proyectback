@@ -13,7 +13,6 @@ const multer = require('multer');
 const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
-const tmp = require('tmp');
 const fs = require('fs');
 const { uploadFileToS3 } = require('../utils/s3Upload');
 const PagosController = require('../controllers/PagosController');
@@ -166,7 +165,6 @@ router.get('/productos/bajostock', authenticateToken, productController.getProdu
 router.post('/pagos/checkoutpro', PagosController.pagarConCheckoutPro);
 
 // WEBHOOK Mercado Pago (debe aceptar POST)
-// Si usas body-parser, asegúrate de aceptar JSON y raw para Mercado Pago
 router.post('/webhook', express.json({ type: '*/*' }), (req, res) => {
   console.log("[Webhook Mercado Pago] Notificación recibida:", req.body);
   // Aquí puedes agregar lógica para procesar el pago, actualizar base de datos, etc.
