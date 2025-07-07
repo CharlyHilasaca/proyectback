@@ -264,4 +264,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// Eliminar administrador (solo desarrollador)
+router.delete('/admin/:clienteId', authenticateToken, DevController.deleteAdmin);
+
 module.exports = router

@@ -205,3 +205,44 @@ exports.registerAdmin = async (req, res) => {
     }
 };
 
+// Eliminar un administrador (solo desarrollador)
+exports.deleteAdmin = async (req, res) => {
+    try {
+        // Validar token de desarrollador
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+        let decoded;
+        try {
+            decoded = require('jsonwebtoken').verify(token, require('../../config/auth.config').jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+        if (!decoded.devId) {
+            return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden eliminar administradores.' });
+        }
+
+        const { clienteId } = req.params;
+        if (!clienteId) {
+            return res.status(400).json({ message: 'clienteId es requerido.' });
+        }
+
+        // Eliminar en PostgreSQL
+        const { pgPool } = require('../../config/db');
+        const deleteQuery = 'DELETE FROM administradores WHERE cliente_id = $1 RETURNING *';
+        const result = await pgPool.query(deleteQuery, [clienteId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Administrador no encontrado.' });
+        }
+
+        // Opcional: eliminar en MongoDB si tienes el username
+        const User = require('../../models/ClientModel/ClientModel');
+        await User.deleteOne({ username: result.rows[0].usuario });
+
+        res.json({ message: 'Administrador eliminado correctamente.', admin: result.rows[0] });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
