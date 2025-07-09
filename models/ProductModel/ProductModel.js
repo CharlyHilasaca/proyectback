@@ -35,12 +35,10 @@ const projectSpecificSchema = new mongoose.Schema({
 const productSchema = new mongoose.Schema({
     name: { 
         type: String,
-        required: true,
-        trim: true
+        required: true
     },
     marca: {
-        type: String,
-        trim: true
+        type: String
     },
     image: { 
         type: String
