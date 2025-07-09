@@ -5,6 +5,7 @@ const Dev = require('../../models/DevModel/DevModel');
 const { pgPool } = require('../../config/db');
 const User = require('../../models/ClientModel/ClientModel');
 const Categoria = require('../../models/CategoryModel/CategoryModel');
+const { S3Client, DeleteObjectCommand } = require('@aws-sdk/client-s3');
 
 //obtener todos los productos
 exports.getProducts = async (req, res) => {
@@ -585,6 +586,32 @@ exports.deleteProductIfNoProyecto = async (req, res) => {
         // Verificar que no tenga ningún proyectoId asignado
         if (Array.isArray(product.projectDetails) && product.projectDetails.length > 0) {
             return res.status(400).json({ message: 'No se puede eliminar: el producto tiene proyectos asignados.' });
+        }
+
+        // Eliminar imagen de AWS S3 si existe
+        if (product.image) {
+            try {
+                const BUCKET_NAME = process.env.AWS_BUCKET_NAME;
+                // Extrae solo el nombre del archivo si es una ruta local o S3
+                let key = product.image;
+                // Si la imagen es una URL completa, extrae el nombre del archivo
+                if (key.startsWith("http")) {
+                    const url = new URL(key);
+                    key = url.pathname.startsWith("/uploads/")
+                        ? url.pathname.replace("/uploads/", "")
+                        : url.pathname.replace(/^\//, "");
+                } else if (key.startsWith("/uploads/")) {
+                    key = key.replace("/uploads/", "");
+                }
+                const s3 = new S3Client({ region: process.env.AWS_REGION });
+                await s3.send(new DeleteObjectCommand({
+                    Bucket: BUCKET_NAME,
+                    Key: key
+                }));
+            } catch (err) {
+                // Solo loguea, no detiene el flujo
+                console.warn('No se pudo eliminar la imagen de S3:', err.message);
+            }
         }
 
         await Product.findByIdAndDelete(id);
