@@ -160,6 +160,7 @@ router.get('/productsresumen', authenticateToken, productController.getProductsR
 router.get('/productsproyecto', authenticateToken, productController.getProductsByUserProject);
 router.put('/products/:productId/updatestock', authenticateToken, productController.updateStockForProduct);
 router.get('/productos/bajostock', authenticateToken, productController.getProductosBajoStock);
+router.delete('/products/:id', authenticateToken, productController.deleteProductIfNoProyecto);
 
 // PAGOS
 router.post('/pagos/checkoutpro', PagosController.pagarConCheckoutPro);

@@ -553,3 +553,45 @@ exports.getProductosBajoStock = async (req, res) => {
     }
 };
 
+// Eliminar un producto solo si no tiene ningún proyectoId asignado (solo desarrollador)
+exports.deleteProductIfNoProyecto = async (req, res) => {
+    try {
+        // Validar token de desarrollador
+        const token = req.cookies.token || req.headers.authorization?.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({ message: 'No autorizado: token no proporcionado.' });
+        }
+        let decoded;
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch (error) {
+            return res.status(401).json({ message: 'Token inválido o expirado.' });
+        }
+        if (!decoded.devId) {
+            return res.status(403).json({ message: 'No autorizado: solo desarrolladores pueden eliminar productos.' });
+        }
+
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ message: 'ID de producto requerido.' });
+        }
+
+        // Buscar el producto
+        const product = await Product.findById(id);
+        if (!product) {
+            return res.status(404).json({ message: 'Producto no encontrado.' });
+        }
+
+        // Verificar que no tenga ningún proyectoId asignado
+        if (Array.isArray(product.projectDetails) && product.projectDetails.length > 0) {
+            return res.status(400).json({ message: 'No se puede eliminar: el producto tiene proyectos asignados.' });
+        }
+
+        await Product.findByIdAndDelete(id);
+
+        res.json({ message: 'Producto eliminado correctamente.' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
